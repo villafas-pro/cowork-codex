@@ -14,6 +14,7 @@
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
     "@monaco-editor/react": "^4.6.0",
+    "@tiptap/extension-image": "^2.27.2",
     "@tiptap/extension-placeholder": "^2.3.0",
     "@tiptap/extension-task-item": "^2.3.0",
     "@tiptap/extension-task-list": "^2.3.0",
@@ -42,10 +43,10 @@
     "electron-rebuild": "^3.2.9",
     "electron-vite": "^2.0.0",
     "postcss": "^8.4.33",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5.3.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
     "vite": "^5.0.12"
   }
 }

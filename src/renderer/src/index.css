@@ -201,6 +201,21 @@ body {
   color: #777;
 }
 
+/* Images */
+.tiptap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+  display: block;
+  border: 1px solid #2e2e2e;
+}
+
+.tiptap img.ProseMirror-selectednode {
+  outline: 2px solid #e8b800;
+  outline-offset: 2px;
+}
+
 /* Note links [[Note Title]] */
 .tiptap span.note-link {
   color: #e8b800;

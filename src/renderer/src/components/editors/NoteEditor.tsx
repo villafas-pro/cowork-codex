@@ -5,6 +5,7 @@ import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import Image from '@tiptap/extension-image'
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2,
   List, ListOrdered, ListChecks, Quote, Strikethrough,
@@ -40,6 +41,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Start writing...' }),
       NoteLink,
+      Image.configure({ inline: false, allowBase64: true }),
     ],
     content: '',
     onUpdate: ({ editor }) => {
@@ -52,6 +54,27 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     loadNote()
     loadWorkItems()
   }, [noteId])
+
+  // Image paste handler
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent): void => {
+      if (!editor) return
+      const items = Array.from(e.clipboardData?.items || [])
+      const imageItem = items.find((item) => item.type.startsWith('image/'))
+      if (!imageItem) return
+      e.preventDefault()
+      const blob = imageItem.getAsFile()
+      if (!blob) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        const base64 = reader.result as string
+        editor.chain().focus().setImage({ src: base64 }).run()
+      }
+      reader.readAsDataURL(blob)
+    }
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [editor])
 
   useEffect(() => {
     if (editor && pendingContent.current !== null) {
