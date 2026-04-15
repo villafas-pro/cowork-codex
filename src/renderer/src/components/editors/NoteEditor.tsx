@@ -5,7 +5,7 @@ import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2,
-  Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin
+  Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin, Trash2
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 
@@ -17,7 +17,7 @@ interface WorkItem {
 }
 
 export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.Element {
-  const { updateTabTitle } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection } = useAppStore()
   const [title, setTitle] = useState('')
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
   const [newItemUrl, setNewItemUrl] = useState('')
@@ -108,6 +108,14 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     setIsPinned((p) => !p)
   }
 
+  const deleteNote = async (): Promise<void> => {
+    if (!window.confirm(`Delete "${titleRef.current || 'Untitled'}"? This cannot be undone.`)) return
+    await window.api?.notes.delete(noteId)
+    const tab = tabs.find((t) => t.entityType === 'note' && t.entityId === noteId)
+    if (tab) closeTab(tab.id)
+    setActiveSection('notes')
+  }
+
   const addWorkItem = async (url?: string): Promise<void> => {
     const target = url || newItemUrl.trim()
     if (!target) return
@@ -164,6 +172,9 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
           <div className="flex-1" />
           <button onClick={togglePin} className={`p-1.5 rounded transition-all ${isPinned ? 'text-accent' : 'text-[#666] hover:text-[#ddd]'}`} title={isPinned ? 'Unpin' : 'Pin note'}>
             <Pin size={13} />
+          </button>
+          <button onClick={deleteNote} className="p-1.5 rounded transition-all text-[#666] hover:text-red-400 hover:bg-[#2a1a1a]" title="Delete note">
+            <Trash2 size={13} />
           </button>
         </div>
 

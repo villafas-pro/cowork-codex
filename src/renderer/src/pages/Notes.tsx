@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Search, Pin, FileText } from 'lucide-react'
+import { Plus, Search, Pin, FileText, Trash2 } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 
 interface NoteItem {
@@ -11,7 +11,7 @@ interface NoteItem {
 }
 
 export default function Notes(): React.JSX.Element {
-  const { openTab } = useAppStore()
+  const { openTab, closeTab, tabs } = useAppStore()
   const [notes, setNotes] = useState<NoteItem[]>([])
   const [search, setSearch] = useState('')
 
@@ -40,6 +40,16 @@ export default function Notes(): React.JSX.Element {
   const active = filtered.filter((n) => !n.is_pinned && !n.all_work_items_done)
   const done = filtered.filter((n) => !n.is_pinned && n.all_work_items_done)
 
+  async function deleteNote(note: NoteItem, e: React.MouseEvent): Promise<void> {
+    e.stopPropagation()
+    if (!window.confirm(`Delete "${note.title || 'Untitled'}"? This cannot be undone.`)) return
+    await window.api?.notes.delete(note.id)
+    setNotes((prev) => prev.filter((n) => n.id !== note.id))
+    // Close the tab if it's open
+    const tab = tabs.find((t) => t.entityType === 'note' && t.entityId === note.id)
+    if (tab) closeTab(tab.id)
+  }
+
   const formatDate = (ts: number): string => {
     const diff = Date.now() - ts
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
@@ -48,21 +58,32 @@ export default function Notes(): React.JSX.Element {
   }
 
   const NoteRow = ({ note }: { note: NoteItem }): React.JSX.Element => (
-    <button
-      onClick={() => openTab({ entityType: 'note', entityId: note.id, title: note.title })}
+    <div
       className={`
-        w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left
-        hover:bg-[#252525] group
+        flex items-center gap-1 rounded-lg transition-all group
+        hover:bg-[#252525]
         ${note.all_work_items_done ? 'opacity-50' : ''}
       `}
     >
-      <FileText size={14} className="text-[#777] flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#f0f0f0] truncate">{note.title || 'Untitled'}</p>
-      </div>
-      <span className="text-xs text-[#888] flex-shrink-0">{formatDate(note.updated_at)}</span>
-      {note.is_pinned === 1 && <Pin size={11} className="text-accent flex-shrink-0" />}
-    </button>
+      <button
+        onClick={() => openTab({ entityType: 'note', entityId: note.id, title: note.title })}
+        className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left min-w-0"
+      >
+        <FileText size={14} className="text-[#777] flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-[#f0f0f0] truncate">{note.title || 'Untitled'}</p>
+        </div>
+        <span className="text-xs text-[#888] flex-shrink-0">{formatDate(note.updated_at)}</span>
+        {note.is_pinned === 1 && <Pin size={11} className="text-accent flex-shrink-0" />}
+      </button>
+      <button
+        onClick={(e) => deleteNote(note, e)}
+        className="flex-shrink-0 p-1.5 mr-1 rounded text-transparent group-hover:text-[#555] hover:!text-red-400 transition-colors"
+        title="Delete note"
+      >
+        <Trash2 size={13} />
+      </button>
+    </div>
   )
 
   return (
