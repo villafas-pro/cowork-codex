@@ -27,7 +27,7 @@ interface FlowRowProps {
 
 function FlowRow({ flow, onOpen, onTogglePin, onDelete }: FlowRowProps): React.JSX.Element {
   return (
-    <div className="group relative flex items-center rounded-lg transition-all hover:bg-[#252525]">
+    <div className="flex items-center gap-1 rounded-lg transition-all group hover:bg-[#252525]">
       <button
         onClick={() => onOpen(flow)}
         className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left min-w-0"
@@ -36,29 +36,22 @@ function FlowRow({ flow, onOpen, onTogglePin, onDelete }: FlowRowProps): React.J
         <div className="flex-1 min-w-0">
           <p className="text-sm text-[#f0f0f0] truncate">{flow.title || 'Untitled'}</p>
         </div>
-        <span className="text-xs text-[#888] flex-shrink-0 mr-14">{formatDate(flow.updated_at)}</span>
+        <span className="text-xs text-[#888] flex-shrink-0">{formatDate(flow.updated_at)}</span>
       </button>
-      {/* Pin indicator (always visible when pinned) */}
-      {flow.is_pinned === 1 && (
-        <Pin size={10} className="absolute right-14 text-accent pointer-events-none" />
-      )}
-      {/* Hover actions */}
-      <div className="absolute right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => onTogglePin(flow, e)}
-          title={flow.is_pinned ? 'Unpin' : 'Pin'}
-          className={`p-1.5 rounded transition-all ${flow.is_pinned ? 'text-accent' : 'text-[#555] hover:text-[#ccc]'}`}
-        >
-          <Pin size={11} />
-        </button>
-        <button
-          onClick={(e) => onDelete(flow, e)}
-          title="Delete"
-          className="p-1.5 rounded text-[#555] hover:text-red-400 hover:bg-[#2a1a1a] transition-all"
-        >
-          <Trash2 size={11} />
-        </button>
-      </div>
+      <button
+        onClick={(e) => onTogglePin(flow, e)}
+        title={flow.is_pinned ? 'Unpin' : 'Pin'}
+        className={`flex-shrink-0 p-1.5 rounded transition-colors ${flow.is_pinned ? 'text-accent' : 'text-transparent group-hover:text-[#555] hover:!text-accent'}`}
+      >
+        <Pin size={13} />
+      </button>
+      <button
+        onClick={(e) => onDelete(flow, e)}
+        title="Delete"
+        className="flex-shrink-0 p-1.5 mr-1 rounded text-transparent group-hover:text-[#555] hover:!text-red-400 transition-colors"
+      >
+        <Trash2 size={13} />
+      </button>
     </div>
   )
 }
