@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { FileText, Clock, AlertCircle, Pin, Search, Bold, Italic, Strikethrough, List, ListOrdered, ListChecks, Quote } from 'lucide-react'
+import { FileText, Clock, AlertCircle, Pin, Search, Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, ListChecks, Quote } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
@@ -26,6 +27,7 @@ export default function Home(): React.JSX.Element {
   const scratchEditor = useEditor({
     extensions: [
       StarterKit,
+      Underline,
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Quick notes, links, anything...' })
@@ -168,6 +170,7 @@ export default function Home(): React.JSX.Element {
                 [
                   { icon: <Bold size={12} />, cmd: () => scratchEditor?.chain().focus().toggleBold().run(), active: !!scratchEditor?.isActive('bold'), title: 'Bold' },
                   { icon: <Italic size={12} />, cmd: () => scratchEditor?.chain().focus().toggleItalic().run(), active: !!scratchEditor?.isActive('italic'), title: 'Italic' },
+                  { icon: <UnderlineIcon size={12} />, cmd: () => scratchEditor?.chain().focus().toggleUnderline().run(), active: !!scratchEditor?.isActive('underline'), title: 'Underline' },
                   { icon: <Strikethrough size={12} />, cmd: () => scratchEditor?.chain().focus().toggleStrike().run(), active: !!scratchEditor?.isActive('strike'), title: 'Strikethrough' },
                 ] as const
               ).map((b, i) => (
