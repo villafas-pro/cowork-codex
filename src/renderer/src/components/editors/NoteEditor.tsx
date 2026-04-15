@@ -11,6 +11,7 @@ import {
   Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin, Trash2
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import { NoteLink } from './extensions/NoteLink'
 
 interface WorkItem {
   id: string
@@ -20,7 +21,7 @@ interface WorkItem {
 }
 
 export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab } = useAppStore()
   const [title, setTitle] = useState('')
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
   const [newItemUrl, setNewItemUrl] = useState('')
@@ -37,7 +38,8 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
       Underline,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Placeholder.configure({ placeholder: 'Start writing...' })
+      Placeholder.configure({ placeholder: 'Start writing...' }),
+      NoteLink,
     ],
     content: '',
     onUpdate: ({ editor }) => {
@@ -214,7 +216,21 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
         {/* Editor body */}
         <div
           className="flex-1 overflow-y-auto px-8 py-5 cursor-text"
-          onClick={() => editor?.commands.focus()}
+          onClick={async (e) => {
+            const target = e.target as HTMLElement
+            if (target.classList.contains('note-link')) {
+              const noteName = target.getAttribute('data-note-name')
+              if (noteName) {
+                const all = await window.api?.notes.getAll()
+                const match = all?.find((n: any) =>
+                  (n.title || '').toLowerCase() === noteName.toLowerCase()
+                )
+                if (match) openTab({ entityType: 'note', entityId: match.id, title: match.title })
+              }
+              return
+            }
+            editor?.commands.focus()
+          }}
         >
           <EditorContent
             editor={editor}
