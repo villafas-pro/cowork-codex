@@ -77,8 +77,8 @@ export function registerWorkItemHandlers(): void {
   // Toggle done
   ipcMain.handle('workItems:toggleDone', (_, id: string) => {
     const db = getDb()
-    const item = db.prepare('SELECT is_done FROM work_items WHERE id = ?').get(id) as WorkItem
-    const newVal = item.isDone ? 0 : 1
+    const item = db.prepare('SELECT is_done FROM work_items WHERE id = ?').get(id) as { is_done: number }
+    const newVal = item.is_done ? 0 : 1
     db.prepare('UPDATE work_items SET is_done = ?, updated_at = ? WHERE id = ?').run(newVal, Date.now(), id)
 
     // Update all_work_items_done for linked notes

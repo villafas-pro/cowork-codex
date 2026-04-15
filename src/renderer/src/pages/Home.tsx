@@ -23,7 +23,7 @@ export default function Home(): React.JSX.Element {
 
   const scratchEditor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ bulletList: false, orderedList: false, listItem: false }),
       Placeholder.configure({ placeholder: 'Quick notes, links, anything...' })
     ],
     content: '',

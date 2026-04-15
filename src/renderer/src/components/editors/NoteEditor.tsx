@@ -31,7 +31,12 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2] } }),
+      StarterKit.configure({
+        heading: { levels: [1, 2] },
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+      }),
       Underline,
       Placeholder.configure({ placeholder: 'Start writing...' })
     ],
