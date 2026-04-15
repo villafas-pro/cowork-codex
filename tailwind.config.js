@@ -24,9 +24,9 @@ module.exports = {
           muted: '#686868'
         },
         accent: {
-          DEFAULT: '#c47b2b',
-          hover: '#d48a35',
-          muted: '#c47b2b33'
+          DEFAULT: '#e8b800',
+          hover: '#f5c800',
+          muted: '#e8b80033'
         },
         border: {
           DEFAULT: '#303030',
