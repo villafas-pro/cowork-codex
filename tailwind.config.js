@@ -5,37 +5,32 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Sidebar
         sidebar: {
-          bg: '#111111',
-          hover: '#1e1e1e',
-          active: '#252525',
-          border: '#222222'
+          bg: '#080808',
+          hover: '#1c1c1c',
+          active: '#242424',
+          border: '#1e1e1e'
         },
-        // Main surfaces
         surface: {
-          0: '#0f0f0f',
-          1: '#1a1a1a',
-          2: '#212121',
-          3: '#2a2a2a',
-          4: '#363636'
+          0: '#0d0d0d',
+          1: '#181818',
+          2: '#202020',
+          3: '#2c2c2c',
+          4: '#383838'
         },
-        // Text
         text: {
-          primary: '#f0f0f0',
-          secondary: '#b0b0b0',
-          muted: '#707070'
+          primary: '#f5f5f5',
+          secondary: '#aaaaaa',
+          muted: '#686868'
         },
-        // Accent (warm amber like Claude)
         accent: {
           DEFAULT: '#c47b2b',
           hover: '#d48a35',
           muted: '#c47b2b33'
         },
-        // Borders
         border: {
-          DEFAULT: '#2e2e2e',
-          strong: '#444444'
+          DEFAULT: '#303030',
+          strong: '#484848'
         }
       },
       fontFamily: {

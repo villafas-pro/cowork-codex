@@ -108,9 +108,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
-  updateTabTitle: (id, title) => {
+  updateTabTitle: (entityId, title) => {
     set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === id ? { ...t, title } : t))
+      tabs: state.tabs.map((t) => (t.entityId === entityId ? { ...t, title } : t))
     }))
   },
 
