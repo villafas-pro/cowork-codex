@@ -1,0 +1,23 @@
+appId: com.coworkcodex.app
+productName: Cowork Codex
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**/*
+  - node_modules/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Cowork Codex
+npmRebuild: true
+publish: null
