@@ -40,6 +40,14 @@ export default function Notes(): React.JSX.Element {
   const active = filtered.filter((n) => !n.is_pinned && !n.all_work_items_done)
   const done = filtered.filter((n) => !n.is_pinned && n.all_work_items_done)
 
+  async function togglePin(note: NoteItem, e: React.MouseEvent): Promise<void> {
+    e.stopPropagation()
+    await window.api?.notes.togglePin(note.id)
+    setNotes((prev) =>
+      prev.map((n) => (n.id === note.id ? { ...n, is_pinned: n.is_pinned ? 0 : 1 } : n))
+    )
+  }
+
   async function deleteNote(note: NoteItem, e: React.MouseEvent): Promise<void> {
     e.stopPropagation()
     if (!window.confirm(`Delete "${note.title || 'Untitled'}"? This cannot be undone.`)) return
@@ -74,7 +82,13 @@ export default function Notes(): React.JSX.Element {
           <p className="text-sm text-[#f0f0f0] truncate">{note.title || 'Untitled'}</p>
         </div>
         <span className="text-xs text-[#888] flex-shrink-0">{formatDate(note.updated_at)}</span>
-        {note.is_pinned === 1 && <Pin size={11} className="text-accent flex-shrink-0" />}
+      </button>
+      <button
+        onClick={(e) => togglePin(note, e)}
+        className={`flex-shrink-0 p-1.5 rounded transition-colors ${note.is_pinned ? 'text-accent' : 'text-transparent group-hover:text-[#555] hover:!text-accent'}`}
+        title={note.is_pinned ? 'Unpin' : 'Pin'}
+      >
+        <Pin size={13} />
       </button>
       <button
         onClick={(e) => deleteNote(note, e)}
