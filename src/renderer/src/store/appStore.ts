@@ -42,6 +42,10 @@ interface AppStore {
   goBack: () => void
   goForward: () => void
 
+  // View mode: are we looking at a section list or a tab's content?
+  viewMode: 'section' | 'tab'
+  setViewMode: (mode: 'section' | 'tab') => void
+
   // Global search
   searchOpen: boolean
   setSearchOpen: (open: boolean) => void
@@ -61,23 +65,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   activeSection: 'home',
   setActiveSection: (section) => {
-    set({ activeSection: section })
+    set({ activeSection: section, viewMode: 'section' })
     get().navigate({ section })
   },
+
+  viewMode: 'section',
+  setViewMode: (mode) => set({ viewMode: mode }),
 
   tabs: [],
   activeTabId: null,
 
   openTab: (tab) => {
     const { tabs } = get()
-    // Check if tab for this entity is already open
     const existing = tabs.find((t) => t.entityType === tab.entityType && t.entityId === tab.entityId)
     if (existing) {
-      set({ activeTabId: existing.id })
+      set({ activeTabId: existing.id, viewMode: 'tab' })
       return
     }
     const newTab = { ...tab, id: uuidv4() }
-    set({ tabs: [...tabs, newTab], activeTabId: newTab.id })
+    set({ tabs: [...tabs, newTab], activeTabId: newTab.id, viewMode: 'tab' })
     get().navigate({ entityType: tab.entityType, entityId: tab.entityId })
   },
 
@@ -95,7 +101,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   setActiveTab: (id) => {
-    set({ activeTabId: id })
+    set({ activeTabId: id, viewMode: 'tab' })
     const tab = get().tabs.find((t) => t.id === id)
     if (tab) {
       get().navigate({ entityType: tab.entityType, entityId: tab.entityId })

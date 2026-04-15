@@ -8,6 +8,7 @@ import Notes from './pages/Notes'
 import Code from './pages/Code'
 import Flow from './pages/Flow'
 import WorkItems from './pages/WorkItems'
+import NoteEditor from './components/editors/NoteEditor'
 
 // Type augmentation for window.api
 declare global {
@@ -86,7 +87,7 @@ declare global {
 }
 
 export default function App(): React.JSX.Element {
-  const { activeSection, searchOpen, setSearchOpen, setTheme } = useAppStore()
+  const { activeSection, searchOpen, setSearchOpen, setTheme, viewMode, tabs, activeTabId } = useAppStore()
 
   // Load persisted theme on startup
   useEffect(() => {
@@ -114,20 +115,31 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [searchOpen])
 
-  const renderSection = (): React.JSX.Element => {
+  const renderContent = (): React.JSX.Element => {
+    // If a tab is active and user clicked a tab, show that item's editor
+    if (viewMode === 'tab' && activeTabId) {
+      const activeTab = tabs.find((t) => t.id === activeTabId)
+      if (activeTab) {
+        if (activeTab.entityType === 'note') {
+          return <NoteEditor noteId={activeTab.entityId} />
+        }
+        // Code and Flow editors coming soon
+        return (
+          <div className="flex items-center justify-center h-full text-[#333] text-sm">
+            Editor coming soon for {activeTab.entityType}
+          </div>
+        )
+      }
+    }
+
+    // Otherwise show section view
     switch (activeSection) {
-      case 'home':
-        return <Home />
-      case 'notes':
-        return <Notes />
-      case 'code':
-        return <Code />
-      case 'flow':
-        return <Flow />
-      case 'work-items':
-        return <WorkItems />
-      default:
-        return <Home />
+      case 'home': return <Home />
+      case 'notes': return <Notes />
+      case 'code': return <Code />
+      case 'flow': return <Flow />
+      case 'work-items': return <WorkItems />
+      default: return <Home />
     }
   }
 
@@ -142,7 +154,7 @@ export default function App(): React.JSX.Element {
 
         {/* Main content */}
         <main className="flex-1 overflow-hidden bg-[#171717]">
-          {renderSection()}
+          {renderContent()}
         </main>
       </div>
 
