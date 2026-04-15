@@ -14,7 +14,7 @@ export default function Sidebar(): React.JSX.Element {
   const { activeSection, setActiveSection, theme, toggleTheme } = useAppStore()
 
   return (
-    <aside className="flex flex-col w-[52px] h-full bg-[#111111] border-r border-[#2a2a2a] py-3 items-center titlebar-no-drag flex-shrink-0">
+    <aside className="flex flex-col w-[52px] h-full bg-[#0a0a0a] border-r border-[#2e2e2e] py-3 items-center titlebar-no-drag flex-shrink-0">
       {/* Logo */}
       <div className="mb-5 w-8 h-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
         <span className="text-white font-bold text-sm">CC</span>

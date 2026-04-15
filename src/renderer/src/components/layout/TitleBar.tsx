@@ -10,7 +10,7 @@ export default function TitleBar(): React.JSX.Element {
   const canGoForward = navIndex < navHistory.length - 1
 
   return (
-    <div className="flex items-center h-10 bg-[#111111] border-b border-[#2a2a2a] flex-shrink-0 titlebar-drag select-none">
+    <div className="flex items-center h-10 bg-[#0a0a0a] border-b border-[#2e2e2e] flex-shrink-0 titlebar-drag select-none">
       {/* Back/Forward */}
       <div className="flex items-center gap-0.5 px-2 titlebar-no-drag">
         <button

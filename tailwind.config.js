@@ -7,24 +7,24 @@ module.exports = {
       colors: {
         // Sidebar
         sidebar: {
-          bg: '#1a1a1a',
-          hover: '#242424',
-          active: '#2a2a2a',
-          border: '#2e2e2e'
+          bg: '#111111',
+          hover: '#1e1e1e',
+          active: '#252525',
+          border: '#222222'
         },
         // Main surfaces
         surface: {
-          0: '#141414',
-          1: '#1e1e1e',
-          2: '#242424',
+          0: '#0f0f0f',
+          1: '#1a1a1a',
+          2: '#212121',
           3: '#2a2a2a',
-          4: '#333333'
+          4: '#363636'
         },
         // Text
         text: {
-          primary: '#e5e5e5',
-          secondary: '#a0a0a0',
-          muted: '#666666'
+          primary: '#f0f0f0',
+          secondary: '#b0b0b0',
+          muted: '#707070'
         },
         // Accent (warm amber like Claude)
         accent: {
@@ -35,7 +35,7 @@ module.exports = {
         // Borders
         border: {
           DEFAULT: '#2e2e2e',
-          strong: '#404040'
+          strong: '#444444'
         }
       },
       fontFamily: {

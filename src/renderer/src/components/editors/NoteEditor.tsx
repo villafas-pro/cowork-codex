@@ -133,17 +133,7 @@ export default function NoteEditor({ noteId }: NoteEditorProps): React.JSX.Eleme
     setWorkItems((prev) => prev.filter((i) => i.id !== workItemId))
   }
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
-      if (!editor) return
-      if (e.ctrlKey && e.key === 'b') { e.preventDefault(); editor.chain().focus().toggleBold().run() }
-      if (e.ctrlKey && e.key === 'i') { e.preventDefault(); editor.chain().focus().toggleItalic().run() }
-      if (e.ctrlKey && e.key === 'u') { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [editor])
+  // TipTap handles Ctrl+B, Ctrl+I, Ctrl+U natively via its extensions
 
   const allDone = workItems.length > 0 && workItems.every((i) => i.is_done)
 

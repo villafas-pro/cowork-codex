@@ -144,7 +144,7 @@ export default function App(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#141414] text-[#e5e5e5] overflow-hidden">
+    <div className="flex flex-col h-screen bg-[#0f0f0f] text-[#f0f0f0] overflow-hidden">
       {/* Title bar with tabs */}
       <TitleBar />
 
@@ -153,7 +153,7 @@ export default function App(): React.JSX.Element {
         <Sidebar />
 
         {/* Main content */}
-        <main className="flex-1 overflow-hidden bg-[#171717]">
+        <main className="flex-1 overflow-hidden bg-[#141414]">
           {renderContent()}
         </main>
       </div>
