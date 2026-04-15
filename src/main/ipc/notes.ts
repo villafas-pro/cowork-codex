@@ -32,7 +32,15 @@ export function registerNoteHandlers(): void {
   ipcMain.handle('notes:update', (_, id: string, data: Partial<Note>) => {
     const db = getDb()
     const now = Date.now()
-    const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(id) as Note
+    // Use snake_case to match actual SQLite column names
+    const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(id) as {
+      title: string
+      content: string
+      is_pinned: number
+      all_work_items_done: number
+      created_at: number
+      updated_at: number
+    } | undefined
     if (!note) return null
 
     // Save version history every 5 minutes
@@ -63,7 +71,7 @@ export function registerNoteHandlers(): void {
       data.title ?? note.title,
       data.content ?? note.content,
       now,
-      data.isPinned ?? note.isPinned,
+      note.is_pinned,
       id
     )
 
