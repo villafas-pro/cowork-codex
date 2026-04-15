@@ -54,8 +54,8 @@ export default function WorkItems(): React.JSX.Element {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] flex-shrink-0">
-        <h1 className="text-sm font-medium text-[#aaa]">Work Items</h1>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#383838] flex-shrink-0">
+        <h1 className="text-sm font-medium text-[#d0d0d0]">Work Items</h1>
         <button
           onClick={pasteFromClipboard}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs transition-all"
@@ -73,11 +73,11 @@ export default function WorkItems(): React.JSX.Element {
             onChange={(e) => setNewUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && createItem()}
             placeholder="Paste Azure DevOps URL..."
-            className="flex-1 px-3 py-1.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-xs text-[#e5e5e5] placeholder-[#333] outline-none focus:border-accent"
+            className="flex-1 px-3 py-1.5 bg-[#1f1f1f] border border-[#383838] rounded-lg text-xs text-[#f0f0f0] placeholder-[#666] outline-none focus:border-accent"
           />
           <button
             onClick={createItem}
-            className="px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-[#aaa] text-xs transition-all"
+            className="px-3 py-1.5 rounded-lg bg-[#2e2e2e] hover:bg-[#383838] text-[#ccc] text-xs transition-all"
           >
             <Plus size={13} />
           </button>
@@ -91,7 +91,7 @@ export default function WorkItems(): React.JSX.Element {
             key={f}
             onClick={() => setFilter(f)}
             className={`px-2.5 py-1 rounded text-xs transition-all capitalize ${
-              filter === f ? 'bg-[#2a2a2a] text-[#e5e5e5]' : 'text-[#444] hover:text-[#aaa]'
+              filter === f ? 'bg-[#2e2e2e] text-[#f0f0f0]' : 'text-[#888] hover:text-[#ccc]'
             }`}
           >
             {f}
@@ -102,17 +102,17 @@ export default function WorkItems(): React.JSX.Element {
       {/* Items list */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         {filtered.length === 0 ? (
-          <p className="text-center text-[#333] text-xs py-8">No work items yet.</p>
+          <p className="text-center text-[#666] text-xs py-8">No work items yet.</p>
         ) : (
           <div className="flex flex-col gap-1">
             {filtered.map((item) => (
               <div
                 key={item.id}
-                className={`flex items-center gap-3 p-3 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] transition-all ${item.is_done ? 'opacity-50' : ''}`}
+                className={`flex items-center gap-3 p-3 rounded-lg bg-[#202020] border border-[#383838] transition-all ${item.is_done ? 'opacity-50' : ''}`}
               >
                 <button
                   onClick={() => toggleDone(item.id)}
-                  className="flex-shrink-0 text-[#444] hover:text-accent transition-colors"
+                  className="flex-shrink-0 text-[#777] hover:text-accent transition-colors"
                 >
                   {item.is_done ? (
                     <CheckSquare size={15} className="text-accent" />
@@ -121,13 +121,13 @@ export default function WorkItems(): React.JSX.Element {
                   )}
                 </button>
                 <span
-                  className={`flex-1 text-sm ${item.is_done ? 'line-through text-[#444]' : 'text-[#e5e5e5]'}`}
+                  className={`flex-1 text-sm ${item.is_done ? 'line-through text-[#666]' : 'text-[#f0f0f0]'}`}
                 >
                   #{item.item_number}
                 </span>
                 <button
                   onClick={() => window.api?.shell.openExternal(item.url)}
-                  className="flex-shrink-0 text-[#333] hover:text-[#aaa] transition-colors"
+                  className="flex-shrink-0 text-[#777] hover:text-[#ccc] transition-colors"
                 >
                   <ExternalLink size={13} />
                 </button>

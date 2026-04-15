@@ -52,15 +52,15 @@ export default function Notes(): React.JSX.Element {
       onClick={() => openTab({ entityType: 'note', entityId: note.id, title: note.title })}
       className={`
         w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left
-        hover:bg-[#242424] group
+        hover:bg-[#252525] group
         ${note.all_work_items_done ? 'opacity-50' : ''}
       `}
     >
-      <FileText size={14} className="text-[#444] flex-shrink-0" />
+      <FileText size={14} className="text-[#777] flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#e5e5e5] truncate">{note.title || 'Untitled'}</p>
+        <p className="text-sm text-[#f0f0f0] truncate">{note.title || 'Untitled'}</p>
       </div>
-      <span className="text-xs text-[#333] flex-shrink-0">{formatDate(note.updated_at)}</span>
+      <span className="text-xs text-[#888] flex-shrink-0">{formatDate(note.updated_at)}</span>
       {note.is_pinned === 1 && <Pin size={11} className="text-accent flex-shrink-0" />}
     </button>
   )
@@ -68,8 +68,8 @@ export default function Notes(): React.JSX.Element {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] flex-shrink-0">
-        <h1 className="text-sm font-medium text-[#aaa]">Notes</h1>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#383838] flex-shrink-0">
+        <h1 className="text-sm font-medium text-[#d0d0d0]">Notes</h1>
         <button
           onClick={createNote}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs transition-all"
@@ -81,13 +81,13 @@ export default function Notes(): React.JSX.Element {
 
       {/* Search */}
       <div className="px-4 py-2 flex-shrink-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
-          <Search size={12} className="text-[#444]" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1f1f1f] border border-[#383838] rounded-lg">
+          <Search size={12} className="text-[#777]" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search notes..."
-            className="flex-1 bg-transparent text-xs text-[#e5e5e5] placeholder-[#333] outline-none"
+            className="flex-1 bg-transparent text-xs text-[#f0f0f0] placeholder-[#666] outline-none"
           />
         </div>
       </div>
@@ -96,19 +96,19 @@ export default function Notes(): React.JSX.Element {
       <div className="flex-1 overflow-y-auto px-2 py-1">
         {pinned.length > 0 && (
           <div className="mb-2">
-            <p className="px-3 py-1 text-xs text-[#333] uppercase tracking-wider">Pinned</p>
+            <p className="px-3 py-1 text-xs text-[#777] uppercase tracking-wider">Pinned</p>
             {pinned.map((n) => <NoteRow key={n.id} note={n} />)}
           </div>
         )}
         {active.map((n) => <NoteRow key={n.id} note={n} />)}
         {done.length > 0 && (
           <div className="mt-4">
-            <p className="px-3 py-1 text-xs text-[#333] uppercase tracking-wider">Completed</p>
+            <p className="px-3 py-1 text-xs text-[#777] uppercase tracking-wider">Completed</p>
             {done.map((n) => <NoteRow key={n.id} note={n} />)}
           </div>
         )}
         {filtered.length === 0 && (
-          <p className="text-center text-[#333] text-xs py-8">No notes yet. Create one above.</p>
+          <p className="text-center text-[#666] text-xs py-8">No notes yet. Create one above.</p>
         )}
       </div>
     </div>

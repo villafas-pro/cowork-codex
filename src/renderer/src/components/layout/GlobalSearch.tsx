@@ -74,30 +74,30 @@ export default function GlobalSearch(): React.JSX.Element {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/60"
       onClick={() => setSearchOpen(false)}
     >
       <div
-        className="w-[600px] bg-[#1e1e1e] border border-[#333] rounded-xl shadow-2xl overflow-hidden"
+        className="w-[600px] bg-[#222] border border-[#484848] rounded-xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2a2a2a]">
-          <Search size={16} className="text-[#555]" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#383838]">
+          <Search size={16} className="text-[#aaa]" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search everything..."
-            className="flex-1 bg-transparent text-[#e5e5e5] placeholder-[#444] text-sm outline-none"
+            className="flex-1 bg-transparent text-[#f0f0f0] placeholder-[#777] text-sm outline-none"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="text-[#444] hover:text-[#aaa]">
+            <button onClick={() => setQuery('')} className="text-[#888] hover:text-[#ddd]">
               <X size={14} />
             </button>
           )}
-          <span className="text-[#333] text-xs">Esc</span>
+          <span className="text-[#777] text-xs">Esc</span>
         </div>
 
         {/* Results */}
@@ -108,18 +108,18 @@ export default function GlobalSearch(): React.JSX.Element {
                 key={result.id}
                 onClick={() => handleSelect(result)}
                 className={`w-full text-left px-4 py-2.5 flex items-start gap-3 transition-all ${
-                  i === selected ? 'bg-[#2a2a2a]' : 'hover:bg-[#242424]'
+                  i === selected ? 'bg-[#2e2e2e]' : 'hover:bg-[#282828]'
                 }`}
               >
-                <span className="text-[#555] mt-0.5 flex-shrink-0">{typeIcon[result.type]}</span>
+                <span className="text-[#aaa] mt-0.5 flex-shrink-0">{typeIcon[result.type]}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#e5e5e5] truncate">{result.title}</span>
-                    <span className="text-xs text-[#444] flex-shrink-0">{typeLabel[result.type]}</span>
+                    <span className="text-sm text-[#f0f0f0] truncate">{result.title}</span>
+                    <span className="text-xs text-[#888] flex-shrink-0">{typeLabel[result.type]}</span>
                   </div>
                   {result.snippet && (
                     <p
-                      className="text-xs text-[#666] mt-0.5 truncate"
+                      className="text-xs text-[#aaa] mt-0.5 truncate"
                       dangerouslySetInnerHTML={{ __html: result.snippet }}
                     />
                   )}
@@ -130,11 +130,11 @@ export default function GlobalSearch(): React.JSX.Element {
         )}
 
         {query && results.length === 0 && (
-          <div className="px-4 py-6 text-center text-[#444] text-sm">No results for "{query}"</div>
+          <div className="px-4 py-6 text-center text-[#888] text-sm">No results for "{query}"</div>
         )}
 
         {!query && (
-          <div className="px-4 py-4 text-center text-[#333] text-xs">
+          <div className="px-4 py-4 text-center text-[#777] text-xs">
             Type to search notes, code, flows, and work items
           </div>
         )}

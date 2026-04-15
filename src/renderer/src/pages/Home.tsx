@@ -21,9 +21,7 @@ export default function Home(): React.JSX.Element {
 
   async function loadNotes(): Promise<void> {
     const all: NoteItem[] = (await window.api?.notes.getAll()) || []
-    // Recently opened: last 8 updated
     const recent = [...all].sort((a, b) => b.updated_at - a.updated_at).slice(0, 8)
-    // Still active: has undone work items
     const active = all.filter((n) => !n.all_work_items_done && n.is_pinned === 0).slice(0, 8)
     setRecentNotes(recent)
     setActiveNotes(active)
@@ -42,12 +40,12 @@ export default function Home(): React.JSX.Element {
   const NoteCard = ({ note }: { note: NoteItem }): React.JSX.Element => (
     <button
       onClick={() => openTab({ entityType: 'note', entityId: note.id, title: note.title })}
-      className="flex items-center gap-3 p-3 rounded-lg bg-[#1e1e1e] hover:bg-[#242424] border border-[#2a2a2a] hover:border-[#333] transition-all text-left w-full group"
+      className="flex items-center gap-3 p-3 rounded-lg bg-[#202020] hover:bg-[#282828] border border-[#383838] hover:border-[#484848] transition-all text-left w-full group"
     >
-      <FileText size={14} className="text-[#555] flex-shrink-0" />
+      <FileText size={14} className="text-[#888] flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#e5e5e5] truncate">{note.title || 'Untitled'}</p>
-        <p className="text-xs text-[#444] mt-0.5">{formatDate(note.updated_at)}</p>
+        <p className="text-sm text-[#f0f0f0] truncate">{note.title || 'Untitled'}</p>
+        <p className="text-xs text-[#888] mt-0.5">{formatDate(note.updated_at)}</p>
       </div>
       {note.is_pinned === 1 && <Pin size={11} className="text-accent flex-shrink-0" />}
     </button>
@@ -59,11 +57,11 @@ export default function Home(): React.JSX.Element {
       <div className="px-8 pt-8 pb-4 flex-shrink-0">
         <button
           onClick={() => setSearchOpen(true)}
-          className="w-full flex items-center gap-3 px-4 py-3 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl text-[#444] hover:border-[#333] hover:text-[#666] transition-all text-left"
+          className="w-full flex items-center gap-3 px-4 py-3 bg-[#202020] border border-[#383838] rounded-xl text-[#888] hover:border-[#505050] hover:text-[#bbb] transition-all text-left"
         >
           <Search size={15} />
           <span className="text-sm">Search everything...</span>
-          <span className="ml-auto text-xs text-[#2a2a2a]">Ctrl+T</span>
+          <span className="ml-auto text-xs text-[#666]">Ctrl+T</span>
         </button>
       </div>
 
@@ -72,14 +70,14 @@ export default function Home(): React.JSX.Element {
           {/* Recently opened */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Clock size={13} className="text-[#555]" />
-              <h2 className="text-xs font-medium text-[#555] uppercase tracking-wider">
+              <Clock size={13} className="text-[#888]" />
+              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">
                 Recently Opened
               </h2>
             </div>
             <div className="flex flex-col gap-1.5">
               {recentNotes.length === 0 ? (
-                <p className="text-xs text-[#333] py-2">No notes yet</p>
+                <p className="text-xs text-[#666] py-2">No notes yet</p>
               ) : (
                 recentNotes.map((note) => <NoteCard key={note.id} note={note} />)
               )}
@@ -89,14 +87,14 @@ export default function Home(): React.JSX.Element {
           {/* Still active */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <AlertCircle size={13} className="text-[#555]" />
-              <h2 className="text-xs font-medium text-[#555] uppercase tracking-wider">
+              <AlertCircle size={13} className="text-[#888]" />
+              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">
                 Still Active
               </h2>
             </div>
             <div className="flex flex-col gap-1.5">
               {activeNotes.length === 0 ? (
-                <p className="text-xs text-[#333] py-2">All caught up</p>
+                <p className="text-xs text-[#666] py-2">All caught up</p>
               ) : (
                 activeNotes.map((note) => <NoteCard key={note.id} note={note} />)
               )}
@@ -106,11 +104,11 @@ export default function Home(): React.JSX.Element {
 
         {/* To Do section */}
         <div className="mt-8 max-w-4xl">
-          <h2 className="text-xs font-medium text-[#555] uppercase tracking-wider mb-3">
+          <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider mb-3">
             Quick Scratch Pad
           </h2>
-          <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 min-h-[120px]">
-            <p className="text-[#333] text-sm">Todo scratch pad coming soon...</p>
+          <div className="bg-[#202020] border border-[#383838] rounded-xl p-4 min-h-[120px]">
+            <p className="text-[#666] text-sm">Todo scratch pad coming soon...</p>
           </div>
         </div>
       </div>

@@ -14,7 +14,7 @@ export default function Sidebar(): React.JSX.Element {
   const { activeSection, setActiveSection, theme, toggleTheme } = useAppStore()
 
   return (
-    <aside className="flex flex-col w-[52px] h-full bg-[#0a0a0a] border-r border-[#2e2e2e] py-3 items-center titlebar-no-drag flex-shrink-0">
+    <aside className="flex flex-col w-[52px] h-full bg-[#0a0a0a] border-r border-[#383838] py-3 items-center titlebar-no-drag flex-shrink-0">
       {/* Logo */}
       <div className="mb-5 w-8 h-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
         <span className="text-white font-bold text-sm">CC</span>
@@ -31,8 +31,8 @@ export default function Sidebar(): React.JSX.Element {
               w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150
               ${
                 activeSection === item.id
-                  ? 'bg-[#2a2a2a] text-accent'
-                  : 'text-[#666] hover:text-[#aaa] hover:bg-[#1e1e1e]'
+                  ? 'bg-[#2e2e2e] text-accent'
+                  : 'text-[#888] hover:text-[#d0d0d0] hover:bg-[#222]'
               }
             `}
           >
@@ -46,14 +46,14 @@ export default function Sidebar(): React.JSX.Element {
         <button
           title="Toggle theme"
           onClick={toggleTheme}
-          className="w-full flex items-center justify-center p-2.5 rounded-md text-[#666] hover:text-[#aaa] hover:bg-[#1e1e1e] transition-all duration-150"
+          className="w-full flex items-center justify-center p-2.5 rounded-md text-[#888] hover:text-[#d0d0d0] hover:bg-[#222] transition-all duration-150"
         >
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
         <button
           title="Settings"
           onClick={() => setActiveSection('home')}
-          className="w-full flex items-center justify-center p-2.5 rounded-md text-[#666] hover:text-[#aaa] hover:bg-[#1e1e1e] transition-all duration-150"
+          className="w-full flex items-center justify-center p-2.5 rounded-md text-[#888] hover:text-[#d0d0d0] hover:bg-[#222] transition-all duration-150"
         >
           <Settings size={16} />
         </button>
