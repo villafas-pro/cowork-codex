@@ -222,10 +222,13 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
               const noteName = target.getAttribute('data-note-name')
               if (noteName) {
                 const all = await window.api?.notes.getAll()
-                const match = all?.find((n: any) =>
+                const matches = (all || []).filter((n: any) =>
                   (n.title || '').toLowerCase() === noteName.toLowerCase()
                 )
-                if (match) openTab({ entityType: 'note', entityId: match.id, title: match.title })
+                if (matches.length === 0) return
+                // If duplicates exist, open the most recently updated one
+                const best = matches.sort((a: any, b: any) => b.updated_at - a.updated_at)[0]
+                openTab({ entityType: 'note', entityId: best.id, title: best.title })
               }
               return
             }

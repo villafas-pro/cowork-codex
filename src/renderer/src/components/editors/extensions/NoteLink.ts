@@ -4,6 +4,9 @@ import { Mark, markInputRule } from '@tiptap/core'
  * NoteLink — renders [[Note Title]] as a clickable yellow chip.
  *
  * Typing [[Some Note]] in the editor converts it to a NoteLink mark.
+ * The [[ and ]] brackets are consumed; only the title text is preserved
+ * as the display content, wrapped in the mark.
+ *
  * The consuming component handles click events by checking for
  * elements with class "note-link" and reading data-note-name.
  */
@@ -28,15 +31,15 @@ export const NoteLink = Mark.create({
     return ['span', { ...HTMLAttributes, class: 'note-link' }, 0]
   },
 
-  // Convert [[Note Title]] → NoteLink mark when the closing ]] is typed.
-  // The last capture group becomes the preserved text; we store the inner
-  // name as an attribute by stripping the [[ and ]].
+  // The LAST capture group in the regex is the text that gets preserved.
+  // \[\[ and \]\] are outside the capture group so they are consumed.
+  // Result: "[[My Note]]" → chip displaying "My Note"
   addInputRules() {
     return [
       markInputRule({
-        find: /(\[\[[^\]]+\]\])$/,
+        find: /\[\[([^\]]+)\]\]$/,
         type: this.type,
-        getAttributes: (match) => ({ noteName: match[1].slice(2, -2).trim() }),
+        getAttributes: (match) => ({ noteName: match[1].trim() }),
       }),
     ]
   },
