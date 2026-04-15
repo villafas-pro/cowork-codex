@@ -3,6 +3,8 @@ import { FileText, Clock, AlertCircle, Pin, Search } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 import { useAppStore } from '../store/appStore'
 
 interface NoteItem {
@@ -23,7 +25,9 @@ export default function Home(): React.JSX.Element {
 
   const scratchEditor = useEditor({
     extensions: [
-      StarterKit.configure({ bulletList: false, orderedList: false, listItem: false }),
+      StarterKit,
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Quick notes, links, anything...' })
     ],
     content: '',

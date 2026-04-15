@@ -3,8 +3,11 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2,
+  List, ListOrdered, ListChecks, Quote, Strikethrough,
   Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin, Trash2
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
@@ -24,20 +27,16 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   const [showAddItem, setShowAddItem] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
 
-  // Refs to avoid stale closures in async callbacks
   const titleRef = useRef('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingContent = useRef<any>(null)
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2] },
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-      }),
+      StarterKit.configure({ heading: { levels: [1, 2] } }),
       Underline,
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: 'Start writing...' })
     ],
     content: '',
@@ -46,14 +45,12 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     }
   })
 
-  // Load note whenever noteId changes
   useEffect(() => {
     pendingContent.current = null
     loadNote()
     loadWorkItems()
   }, [noteId])
 
-  // Once editor is ready, apply any pending content
   useEffect(() => {
     if (editor && pendingContent.current !== null) {
       editor.commands.setContent(pendingContent.current, false)
@@ -64,13 +61,11 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   async function loadNote(): Promise<void> {
     const note = await window.api?.notes.get(noteId)
     if (!note) return
-
     const t = note.title || ''
     setTitle(t)
     titleRef.current = t
     setIsPinned(!!note.is_pinned)
     updateTabTitle(noteId, t || 'Untitled')
-
     if (note.content && note.content !== '{}') {
       try {
         const parsed = JSON.parse(note.content)
@@ -79,9 +74,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
         } else {
           pendingContent.current = parsed
         }
-      } catch {
-        // plain text fallback
-      }
+      } catch { /* plain text fallback */ }
     }
   }
 
@@ -149,32 +142,56 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
 
   const allDone = workItems.length > 0 && workItems.every((i) => i.is_done)
 
-  const toolbarBtn = (active: boolean): string =>
+  const btn = (active: boolean): string =>
     `p-1.5 rounded transition-all ${active ? 'bg-[#383838] text-white' : 'text-[#888] hover:text-[#ddd] hover:bg-[#2a2a2a]'}`
+  const div = <div className="w-px h-4 bg-[#383838] mx-0.5" />
 
   return (
     <div className="flex h-full overflow-hidden">
       {/* Main editor area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-[#303030] bg-[#141414] flex-shrink-0">
-          <button onClick={() => editor?.chain().focus().toggleBold().run()} className={toolbarBtn(!!editor?.isActive('bold'))} title="Bold (Ctrl+B)">
+        <div className="flex items-center gap-0.5 px-3 py-2 border-b border-[#303030] bg-[#141414] flex-shrink-0 flex-wrap">
+          {/* Text style */}
+          <button onClick={() => editor?.chain().focus().toggleBold().run()} className={btn(!!editor?.isActive('bold'))} title="Bold (Ctrl+B)">
             <Bold size={13} />
           </button>
-          <button onClick={() => editor?.chain().focus().toggleItalic().run()} className={toolbarBtn(!!editor?.isActive('italic'))} title="Italic (Ctrl+I)">
+          <button onClick={() => editor?.chain().focus().toggleItalic().run()} className={btn(!!editor?.isActive('italic'))} title="Italic (Ctrl+I)">
             <Italic size={13} />
           </button>
-          <button onClick={() => editor?.chain().focus().toggleUnderline().run()} className={toolbarBtn(!!editor?.isActive('underline'))} title="Underline (Ctrl+U)">
+          <button onClick={() => editor?.chain().focus().toggleUnderline().run()} className={btn(!!editor?.isActive('underline'))} title="Underline (Ctrl+U)">
             <UnderlineIcon size={13} />
           </button>
-          <div className="w-px h-4 bg-[#383838] mx-1" />
-          <button onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} className={toolbarBtn(!!editor?.isActive('heading', { level: 1 }))} title="Heading 1">
+          <button onClick={() => editor?.chain().focus().toggleStrike().run()} className={btn(!!editor?.isActive('strike'))} title="Strikethrough">
+            <Strikethrough size={13} />
+          </button>
+          {div}
+          {/* Headings */}
+          <button onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} className={btn(!!editor?.isActive('heading', { level: 1 }))} title="Heading 1">
             <Heading1 size={13} />
           </button>
-          <button onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} className={toolbarBtn(!!editor?.isActive('heading', { level: 2 }))} title="Heading 2">
+          <button onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} className={btn(!!editor?.isActive('heading', { level: 2 }))} title="Heading 2">
             <Heading2 size={13} />
           </button>
+          {div}
+          {/* Lists */}
+          <button onClick={() => editor?.chain().focus().toggleBulletList().run()} className={btn(!!editor?.isActive('bulletList'))} title="Bullet list">
+            <List size={13} />
+          </button>
+          <button onClick={() => editor?.chain().focus().toggleOrderedList().run()} className={btn(!!editor?.isActive('orderedList'))} title="Numbered list">
+            <ListOrdered size={13} />
+          </button>
+          <button onClick={() => editor?.chain().focus().toggleTaskList().run()} className={btn(!!editor?.isActive('taskList'))} title="Task list (checkboxes)">
+            <ListChecks size={13} />
+          </button>
+          {div}
+          {/* Block */}
+          <button onClick={() => editor?.chain().focus().toggleBlockquote().run()} className={btn(!!editor?.isActive('blockquote'))} title="Blockquote">
+            <Quote size={13} />
+          </button>
+          {/* Spacer */}
           <div className="flex-1" />
+          {/* Note actions */}
           <button onClick={togglePin} className={`p-1.5 rounded transition-all ${isPinned ? 'text-accent' : 'text-[#666] hover:text-[#ddd]'}`} title={isPinned ? 'Unpin' : 'Pin note'}>
             <Pin size={13} />
           </button>
@@ -239,7 +256,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
 
         <div className="flex-1 overflow-y-auto py-1">
           {workItems.length === 0 ? (
-            <p className="text-xs text-[#333] text-center py-6">No linked work items</p>
+            <p className="text-xs text-[#555] text-center py-6">No linked work items</p>
           ) : (
             workItems.map((item) => (
               <div key={item.id} className="flex items-center gap-2 px-3 py-2 group hover:bg-[#1a1a1a] transition-all">
