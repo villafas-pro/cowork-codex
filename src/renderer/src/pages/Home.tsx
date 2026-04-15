@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react'
-import { FileText, Clock, AlertCircle, Pin, Search } from 'lucide-react'
+import React, { useEffect, useState, useRef } from 'react'
+import { FileText, Clock, AlertCircle, Pin, Search, Bold, Italic, Strikethrough, List, ListOrdered, ListChecks, Quote } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -161,14 +161,50 @@ export default function Home(): React.JSX.Element {
           <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider mb-3">
             Quick Scratch Pad
           </h2>
-          <div
-            className="bg-[#202020] border border-[#383838] rounded-xl px-5 py-4 min-h-[140px] cursor-text"
-            onClick={() => scratchEditor?.commands.focus()}
-          >
-            <EditorContent
-              editor={scratchEditor}
-              className="tiptap text-[14px] text-[#d8d8d8] leading-relaxed"
-            />
+          <div className="bg-[#202020] border border-[#383838] rounded-xl overflow-hidden">
+            {/* Compact toolbar */}
+            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#2e2e2e]">
+              {(
+                [
+                  { icon: <Bold size={12} />, cmd: () => scratchEditor?.chain().focus().toggleBold().run(), active: !!scratchEditor?.isActive('bold'), title: 'Bold' },
+                  { icon: <Italic size={12} />, cmd: () => scratchEditor?.chain().focus().toggleItalic().run(), active: !!scratchEditor?.isActive('italic'), title: 'Italic' },
+                  { icon: <Strikethrough size={12} />, cmd: () => scratchEditor?.chain().focus().toggleStrike().run(), active: !!scratchEditor?.isActive('strike'), title: 'Strikethrough' },
+                ] as const
+              ).map((b, i) => (
+                <button key={i} onClick={b.cmd} title={b.title}
+                  className={`p-1 rounded transition-all ${b.active ? 'bg-[#383838] text-white' : 'text-[#666] hover:text-[#ccc] hover:bg-[#2a2a2a]'}`}>
+                  {b.icon}
+                </button>
+              ))}
+              <div className="w-px h-3 bg-[#383838] mx-0.5" />
+              {(
+                [
+                  { icon: <List size={12} />, cmd: () => scratchEditor?.chain().focus().toggleBulletList().run(), active: !!scratchEditor?.isActive('bulletList'), title: 'Bullet list' },
+                  { icon: <ListOrdered size={12} />, cmd: () => scratchEditor?.chain().focus().toggleOrderedList().run(), active: !!scratchEditor?.isActive('orderedList'), title: 'Numbered list' },
+                  { icon: <ListChecks size={12} />, cmd: () => scratchEditor?.chain().focus().toggleTaskList().run(), active: !!scratchEditor?.isActive('taskList'), title: 'Task list' },
+                ] as const
+              ).map((b, i) => (
+                <button key={i} onClick={b.cmd} title={b.title}
+                  className={`p-1 rounded transition-all ${b.active ? 'bg-[#383838] text-white' : 'text-[#666] hover:text-[#ccc] hover:bg-[#2a2a2a]'}`}>
+                  {b.icon}
+                </button>
+              ))}
+              <div className="w-px h-3 bg-[#383838] mx-0.5" />
+              <button onClick={() => scratchEditor?.chain().focus().toggleBlockquote().run()} title="Blockquote"
+                className={`p-1 rounded transition-all ${scratchEditor?.isActive('blockquote') ? 'bg-[#383838] text-white' : 'text-[#666] hover:text-[#ccc] hover:bg-[#2a2a2a]'}`}>
+                <Quote size={12} />
+              </button>
+            </div>
+            {/* Editor content */}
+            <div
+              className="px-5 py-4 min-h-[120px] cursor-text"
+              onClick={() => scratchEditor?.commands.focus()}
+            >
+              <EditorContent
+                editor={scratchEditor}
+                className="tiptap text-[14px] text-[#d8d8d8] leading-relaxed"
+              />
+            </div>
           </div>
         </div>
       </div>
