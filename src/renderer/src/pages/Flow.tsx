@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Search, GitBranch } from 'lucide-react'
+import { Plus, Search, GitBranch, Pin, Trash2 } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 
 interface FlowItem {
@@ -12,7 +12,7 @@ interface FlowItem {
 }
 
 export default function Flow(): React.JSX.Element {
-  const { openTab } = useAppStore()
+  const { openTab, closeTab, tabs } = useAppStore()
   const [flows, setFlows] = useState<FlowItem[]>([])
   const [search, setSearch] = useState('')
 
@@ -33,12 +33,28 @@ export default function Flow(): React.JSX.Element {
     }
   }
 
+  async function togglePin(flow: FlowItem, e: React.MouseEvent): Promise<void> {
+    e.stopPropagation()
+    await window.api?.flows.togglePin(flow.id)
+    setFlows((prev) => prev.map((f) => f.id === flow.id ? { ...f, is_pinned: f.is_pinned ? 0 : 1 } : f))
+  }
+
+  async function deleteFlow(flow: FlowItem, e: React.MouseEvent): Promise<void> {
+    e.stopPropagation()
+    if (!window.confirm(`Delete "${flow.title || 'Untitled'}"? This cannot be undone.`)) return
+    await window.api?.flows.delete(flow.id)
+    setFlows((prev) => prev.filter((f) => f.id !== flow.id))
+    const tab = tabs.find((t) => t.entityType === 'flow' && t.entityId === flow.id)
+    if (tab) closeTab(tab.id)
+  }
+
   const filtered = flows.filter((f) =>
     f.title.toLowerCase().includes(search.toLowerCase())
   )
 
-  const standalone = filtered.filter((f) => !f.note_id)
-  const fromNotes = filtered.filter((f) => f.note_id)
+  const pinned = filtered.filter((f) => f.is_pinned === 1)
+  const standalone = filtered.filter((f) => !f.note_id && f.is_pinned === 0)
+  const fromNotes = filtered.filter((f) => f.note_id && f.is_pinned === 0)
 
   const formatDate = (ts: number): string => {
     const diff = Date.now() - ts
@@ -48,16 +64,42 @@ export default function Flow(): React.JSX.Element {
   }
 
   const FlowRow = ({ flow }: { flow: FlowItem }): React.JSX.Element => (
-    <button
-      onClick={() => openTab({ entityType: 'flow', entityId: flow.id, title: flow.title })}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left hover:bg-[#252525]"
-    >
-      <GitBranch size={14} className="text-[#777] flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#f0f0f0] truncate">{flow.title || 'Untitled'}</p>
+    <div className="group relative flex items-center rounded-lg transition-all hover:bg-[#252525]">
+      <button
+        onClick={() => openTab({ entityType: 'flow', entityId: flow.id, title: flow.title })}
+        className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left min-w-0"
+      >
+        <GitBranch size={14} className="text-[#777] flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-[#f0f0f0] truncate">{flow.title || 'Untitled'}</p>
+        </div>
+        <span className="text-xs text-[#888] flex-shrink-0 mr-12">{formatDate(flow.updated_at)}</span>
+      </button>
+      {/* Hover actions */}
+      <div className="absolute right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => togglePin(flow, e)}
+          title={flow.is_pinned ? 'Unpin' : 'Pin'}
+          className={`p-1.5 rounded transition-all ${flow.is_pinned ? 'text-accent' : 'text-[#555] hover:text-[#ccc]'}`}
+        >
+          <Pin size={11} />
+        </button>
+        <button
+          onClick={(e) => deleteFlow(flow, e)}
+          title="Delete"
+          className="p-1.5 rounded text-[#555] hover:text-red-400 hover:bg-[#2a1a1a] transition-all"
+        >
+          <Trash2 size={11} />
+        </button>
       </div>
-      <span className="text-xs text-[#888] flex-shrink-0">{formatDate(flow.updated_at)}</span>
-    </button>
+    </div>
+  )
+
+  const Section = ({ label, items }: { label: string; items: FlowItem[] }): React.JSX.Element => (
+    <div className="mb-4">
+      <p className="px-3 py-1 text-xs text-[#777] uppercase tracking-wider">{label}</p>
+      {items.map((f) => <FlowRow key={f.id} flow={f} />)}
+    </div>
   )
 
   return (
@@ -66,7 +108,7 @@ export default function Flow(): React.JSX.Element {
         <h1 className="text-sm font-medium text-[#d0d0d0]">Flow</h1>
         <button
           onClick={createFlow}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs transition-all"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-black text-xs font-medium transition-all"
         >
           <Plus size={13} />
           New Flow
@@ -86,20 +128,11 @@ export default function Flow(): React.JSX.Element {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-1">
-        {standalone.length > 0 && (
-          <div className="mb-4">
-            <p className="px-3 py-1 text-xs text-[#777] uppercase tracking-wider">Standalone</p>
-            {standalone.map((f) => <FlowRow key={f.id} flow={f} />)}
-          </div>
-        )}
-        {fromNotes.length > 0 && (
-          <div>
-            <p className="px-3 py-1 text-xs text-[#777] uppercase tracking-wider">From Notes</p>
-            {fromNotes.map((f) => <FlowRow key={f.id} flow={f} />)}
-          </div>
-        )}
+        {pinned.length > 0 && <Section label="Pinned" items={pinned} />}
+        {standalone.length > 0 && <Section label="Standalone" items={standalone} />}
+        {fromNotes.length > 0 && <Section label="From Notes" items={fromNotes} />}
         {filtered.length === 0 && (
-          <p className="text-center text-[#666] text-xs py-8">No flows yet.</p>
+          <p className="text-center text-[#666] text-xs py-8">No flows yet. Create one to get started.</p>
         )}
       </div>
     </div>

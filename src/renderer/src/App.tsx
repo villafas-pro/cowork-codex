@@ -10,6 +10,7 @@ import Flow from './pages/Flow'
 import WorkItems from './pages/WorkItems'
 import NoteEditor from './components/editors/NoteEditor'
 import CodeEditor from './components/editors/CodeEditor'
+import FlowEditor from './components/editors/FlowEditor'
 
 // Type augmentation for window.api
 declare global {
@@ -153,12 +154,9 @@ export default function App(): React.JSX.Element {
         if (activeTab.entityType === 'code') {
           return <CodeEditor blockId={activeTab.entityId} />
         }
-        // Flow editor coming soon
-        return (
-          <div className="flex items-center justify-center h-full text-[#555] text-sm">
-            Flow editor coming soon
-          </div>
-        )
+        if (activeTab.entityType === 'flow') {
+          return <FlowEditor flowId={activeTab.entityId} />
+        }
       }
     }
 
