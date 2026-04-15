@@ -34,6 +34,7 @@ interface AppStore {
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   updateTabTitle: (id: string, title: string) => void
+  restoreTabs: (tabs: Tab[], activeTabId: string | null) => void
 
   // Navigation history (back/forward)
   navHistory: NavEntry[]
@@ -112,6 +113,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set((state) => ({
       tabs: state.tabs.map((t) => (t.entityId === entityId ? { ...t, title } : t))
     }))
+  },
+
+  restoreTabs: (tabs, activeTabId) => {
+    if (tabs.length === 0) return
+    set({ tabs, activeTabId, viewMode: activeTabId ? 'tab' : 'section' })
   },
 
   navHistory: [],

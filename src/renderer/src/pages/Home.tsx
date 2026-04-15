@@ -1,5 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { FileText, Clock, AlertCircle, Pin, Search } from 'lucide-react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
 import { useAppStore } from '../store/appStore'
 
 interface NoteItem {
@@ -14,10 +17,57 @@ export default function Home(): React.JSX.Element {
   const { openTab, setSearchOpen } = useAppStore()
   const [recentNotes, setRecentNotes] = useState<NoteItem[]>([])
   const [activeNotes, setActiveNotes] = useState<NoteItem[]>([])
+  const scratchSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scratchLoaded = useRef(false)
+  const pendingScratch = useRef<any>(null)
+
+  const scratchEditor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: 'Quick notes, links, anything...' })
+    ],
+    content: '',
+    onUpdate: ({ editor }) => {
+      if (!scratchLoaded.current) return
+      if (scratchSaveTimer.current) clearTimeout(scratchSaveTimer.current)
+      scratchSaveTimer.current = setTimeout(() => {
+        window.api?.todo.save(JSON.stringify(editor.getJSON()))
+      }, 500)
+    }
+  })
 
   useEffect(() => {
     loadNotes()
+    loadScratch()
   }, [])
+
+  // Apply pending scratch content once editor is ready
+  useEffect(() => {
+    if (scratchEditor && pendingScratch.current !== null) {
+      scratchEditor.commands.setContent(pendingScratch.current, false)
+      pendingScratch.current = null
+      scratchLoaded.current = true
+    }
+  }, [scratchEditor])
+
+  async function loadScratch(): Promise<void> {
+    const row = await window.api?.todo.get()
+    if (!row?.content || row.content === '{}') {
+      scratchLoaded.current = true
+      return
+    }
+    try {
+      const parsed = JSON.parse(row.content)
+      if (scratchEditor) {
+        scratchEditor.commands.setContent(parsed, false)
+        scratchLoaded.current = true
+      } else {
+        pendingScratch.current = parsed
+      }
+    } catch {
+      scratchLoaded.current = true
+    }
+  }
 
   async function loadNotes(): Promise<void> {
     const all: NoteItem[] = (await window.api?.notes.getAll()) || []
@@ -102,13 +152,19 @@ export default function Home(): React.JSX.Element {
           </section>
         </div>
 
-        {/* To Do section */}
+        {/* Quick Scratch Pad */}
         <div className="mt-8 max-w-4xl">
           <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider mb-3">
             Quick Scratch Pad
           </h2>
-          <div className="bg-[#202020] border border-[#383838] rounded-xl p-4 min-h-[120px]">
-            <p className="text-[#666] text-sm">Todo scratch pad coming soon...</p>
+          <div
+            className="bg-[#202020] border border-[#383838] rounded-xl px-5 py-4 min-h-[140px] cursor-text"
+            onClick={() => scratchEditor?.commands.focus()}
+          >
+            <EditorContent
+              editor={scratchEditor}
+              className="tiptap text-[14px] text-[#d8d8d8] leading-relaxed"
+            />
           </div>
         </div>
       </div>

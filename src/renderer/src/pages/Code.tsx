@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Search, Code2 } from 'lucide-react'
+import { Plus, Search, Code2, Pin, Trash2 } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 
 interface CodeBlock {
@@ -13,7 +13,7 @@ interface CodeBlock {
 }
 
 export default function Code(): React.JSX.Element {
-  const { openTab } = useAppStore()
+  const { openTab, closeTab, tabs } = useAppStore()
   const [blocks, setBlocks] = useState<CodeBlock[]>([])
   const [search, setSearch] = useState('')
 
@@ -41,6 +41,21 @@ export default function Code(): React.JSX.Element {
   const standalone = filtered.filter((b) => !b.note_id)
   const fromNotes = filtered.filter((b) => b.note_id)
 
+  async function togglePin(block: CodeBlock, e: React.MouseEvent): Promise<void> {
+    e.stopPropagation()
+    await window.api?.code.togglePin(block.id)
+    setBlocks((prev) => prev.map((b) => (b.id === block.id ? { ...b, is_pinned: b.is_pinned ? 0 : 1 } : b)))
+  }
+
+  async function deleteBlock(block: CodeBlock, e: React.MouseEvent): Promise<void> {
+    e.stopPropagation()
+    if (!window.confirm(`Delete "${block.title || 'Untitled'}"? This cannot be undone.`)) return
+    await window.api?.code.delete(block.id)
+    setBlocks((prev) => prev.filter((b) => b.id !== block.id))
+    const tab = tabs.find((t) => t.entityType === 'code' && t.entityId === block.id)
+    if (tab) closeTab(tab.id)
+  }
+
   const formatDate = (ts: number): string => {
     const diff = Date.now() - ts
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
@@ -49,17 +64,33 @@ export default function Code(): React.JSX.Element {
   }
 
   const BlockRow = ({ block }: { block: CodeBlock }): React.JSX.Element => (
-    <button
-      onClick={() => openTab({ entityType: 'code', entityId: block.id, title: block.title })}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left hover:bg-[#252525]"
-    >
-      <Code2 size={14} className="text-[#777] flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#f0f0f0] truncate">{block.title || 'Untitled'}</p>
-        <p className="text-xs text-[#888]">{block.language}</p>
-      </div>
-      <span className="text-xs text-[#888] flex-shrink-0">{formatDate(block.updated_at)}</span>
-    </button>
+    <div className="flex items-center gap-1 rounded-lg transition-all group hover:bg-[#252525]">
+      <button
+        onClick={() => openTab({ entityType: 'code', entityId: block.id, title: block.title })}
+        className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left min-w-0"
+      >
+        <Code2 size={14} className="text-[#777] flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-[#f0f0f0] truncate">{block.title || 'Untitled'}</p>
+          <p className="text-xs text-[#888]">{block.language}</p>
+        </div>
+        <span className="text-xs text-[#888] flex-shrink-0">{formatDate(block.updated_at)}</span>
+      </button>
+      <button
+        onClick={(e) => togglePin(block, e)}
+        className={`flex-shrink-0 p-1.5 rounded transition-colors ${block.is_pinned ? 'text-accent' : 'text-transparent group-hover:text-[#555] hover:!text-accent'}`}
+        title={block.is_pinned ? 'Unpin' : 'Pin'}
+      >
+        <Pin size={13} />
+      </button>
+      <button
+        onClick={(e) => deleteBlock(block, e)}
+        className="flex-shrink-0 p-1.5 mr-1 rounded text-transparent group-hover:text-[#555] hover:!text-red-400 transition-colors"
+        title="Delete block"
+      >
+        <Trash2 size={13} />
+      </button>
+    </div>
   )
 
   return (

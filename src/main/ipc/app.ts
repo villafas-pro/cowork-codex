@@ -23,7 +23,22 @@ export function registerAppHandlers(): void {
   // Tab management
   ipcMain.handle('tabs:getAll', () => {
     const db = getDb()
-    return db.prepare('SELECT * FROM open_tabs ORDER BY tab_order ASC').all()
+    return db.prepare(`
+      SELECT t.*,
+        CASE t.entity_type
+          WHEN 'note'      THEN COALESCE(n.title, 'Untitled')
+          WHEN 'code'      THEN COALESCE(c.title, 'Untitled')
+          WHEN 'flow'      THEN COALESCE(f.title, 'Untitled')
+          WHEN 'work-item' THEN COALESCE('#' || w.item_number, 'Work Item')
+          ELSE 'Untitled'
+        END as title
+      FROM open_tabs t
+      LEFT JOIN notes n       ON t.entity_type = 'note'      AND t.entity_id = n.id
+      LEFT JOIN code_blocks c ON t.entity_type = 'code'      AND t.entity_id = c.id
+      LEFT JOIN flows f       ON t.entity_type = 'flow'      AND t.entity_id = f.id
+      LEFT JOIN work_items w  ON t.entity_type = 'work-item' AND t.entity_id = w.id
+      ORDER BY t.tab_order ASC
+    `).all()
   })
 
   ipcMain.handle('tabs:save', (_, tabs: Array<{ id: string; entityType: string; entityId: string; tabOrder: number; isActive: number }>) => {

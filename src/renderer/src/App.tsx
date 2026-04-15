@@ -9,6 +9,7 @@ import Code from './pages/Code'
 import Flow from './pages/Flow'
 import WorkItems from './pages/WorkItems'
 import NoteEditor from './components/editors/NoteEditor'
+import CodeEditor from './components/editors/CodeEditor'
 
 // Type augmentation for window.api
 declare global {
@@ -87,18 +88,44 @@ declare global {
 }
 
 export default function App(): React.JSX.Element {
-  const { activeSection, searchOpen, setSearchOpen, setTheme, viewMode, tabs, activeTabId } = useAppStore()
+  const { activeSection, searchOpen, setSearchOpen, setTheme, viewMode, tabs, activeTabId, restoreTabs } = useAppStore()
 
-  // Load persisted theme on startup
+  // Load persisted theme and restore tabs on startup
   useEffect(() => {
     async function loadSettings(): Promise<void> {
       const theme = (await window.api?.settings.get('theme')) as 'dark' | 'light' | undefined
-      if (theme) {
-        setTheme(theme)
+      if (theme) setTheme(theme)
+
+      const savedTabs = (await window.api?.tabs.getAll()) || []
+      if (savedTabs.length > 0) {
+        const restoredTabs = savedTabs.map((t: any) => ({
+          id: t.id,
+          entityType: t.entity_type as import('./store/appStore').EntityType,
+          entityId: t.entity_id as string,
+          title: (t.title as string) || 'Untitled'
+        }))
+        const activeRow = savedTabs.find((t: any) => t.is_active === 1)
+        restoreTabs(restoredTabs, activeRow?.id ?? restoredTabs[restoredTabs.length - 1].id)
       }
     }
     loadSettings()
   }, [])
+
+  // Auto-save tabs whenever they change (debounced 500ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.api?.tabs.save(
+        tabs.map((t, i) => ({
+          id: t.id,
+          entityType: t.entityType,
+          entityId: t.entityId,
+          tabOrder: i,
+          isActive: t.id === activeTabId ? 1 : 0
+        }))
+      )
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [tabs, activeTabId])
 
   // Register Ctrl+T for global search
   useEffect(() => {
@@ -123,10 +150,13 @@ export default function App(): React.JSX.Element {
         if (activeTab.entityType === 'note') {
           return <NoteEditor noteId={activeTab.entityId} />
         }
-        // Code and Flow editors coming soon
+        if (activeTab.entityType === 'code') {
+          return <CodeEditor blockId={activeTab.entityId} />
+        }
+        // Flow editor coming soon
         return (
-          <div className="flex items-center justify-center h-full text-[#333] text-sm">
-            Editor coming soon for {activeTab.entityType}
+          <div className="flex items-center justify-center h-full text-[#555] text-sm">
+            Flow editor coming soon
           </div>
         )
       }
