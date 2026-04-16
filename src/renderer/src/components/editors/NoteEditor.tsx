@@ -55,25 +55,45 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     loadWorkItems()
   }, [noteId])
 
-  // Image paste handler
+  // Image paste + drag-and-drop handler
   useEffect(() => {
-    const handlePaste = (e: ClipboardEvent): void => {
-      if (!editor) return
-      const items = Array.from(e.clipboardData?.items || [])
-      const imageItem = items.find((item) => item.type.startsWith('image/'))
-      if (!imageItem) return
-      e.preventDefault()
-      const blob = imageItem.getAsFile()
-      if (!blob) return
+    const insertImageBlob = (blob: Blob): void => {
       const reader = new FileReader()
       reader.onload = () => {
         const base64 = reader.result as string
-        editor.chain().focus().setImage({ src: base64 }).run()
+        editor?.chain().focus().setImage({ src: base64 }).run()
       }
       reader.readAsDataURL(blob)
     }
+
+    const handlePaste = (e: ClipboardEvent): void => {
+      if (!editor) return
+      const items = Array.from(e.clipboardData?.items || [])
+      const imageItems = items.filter((item) => item.type.startsWith('image/'))
+      if (!imageItems.length) return
+      // Prefer GIF so animation is preserved
+      const imageItem = imageItems.find((i) => i.type === 'image/gif') ?? imageItems[0]
+      e.preventDefault()
+      const blob = imageItem.getAsFile()
+      if (blob) insertImageBlob(blob)
+    }
+
+    const handleDrop = (e: DragEvent): void => {
+      if (!editor) return
+      const files = Array.from(e.dataTransfer?.files || [])
+      const imageFile = files.find((f) => f.type.startsWith('image/'))
+      if (!imageFile) return
+      e.preventDefault()
+      insertImageBlob(imageFile)
+    }
+
     window.addEventListener('paste', handlePaste)
-    return () => window.removeEventListener('paste', handlePaste)
+    window.addEventListener('drop', handleDrop)
+    window.addEventListener('dragover', (e) => e.preventDefault())
+    return () => {
+      window.removeEventListener('paste', handlePaste)
+      window.removeEventListener('drop', handleDrop)
+    }
   }, [editor])
 
   useEffect(() => {

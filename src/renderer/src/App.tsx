@@ -8,6 +8,7 @@ import Notes from './pages/Notes'
 import Code from './pages/Code'
 import Flow from './pages/Flow'
 import WorkItems from './pages/WorkItems'
+import Images from './pages/Images'
 import NoteEditor from './components/editors/NoteEditor'
 import CodeEditor from './components/editors/CodeEditor'
 import FlowEditor from './components/editors/FlowEditor'
@@ -25,6 +26,7 @@ declare global {
         togglePin: (id: string) => Promise<any>
         getVersions: (noteId: string) => Promise<any[]>
         search: (query: string) => Promise<any[]>
+        getImages: () => Promise<any[]>
       }
       workItems: {
         getAll: () => Promise<any[]>
@@ -167,6 +169,7 @@ export default function App(): React.JSX.Element {
       case 'code': return <Code />
       case 'flow': return <Flow />
       case 'work-items': return <WorkItems />
+      case 'images': return <Images />
       default: return <Home />
     }
   }

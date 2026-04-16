@@ -124,4 +124,36 @@ export function registerNoteHandlers(): void {
       `)
       .all(`${query}*`)
   })
+
+  // Get all embedded images across all notes
+  ipcMain.handle('notes:getImages', () => {
+    const db = getDb()
+    const notes = db
+      .prepare("SELECT id, title, updated_at, content FROM notes WHERE content IS NOT NULL AND content != '{}'")
+      .all() as { id: string; title: string; updated_at: number; content: string }[]
+
+    const images: { noteId: string; noteTitle: string; noteUpdatedAt: number; src: string; index: number }[] = []
+
+    for (const note of notes) {
+      try {
+        const doc = JSON.parse(note.content)
+        let index = 0
+        const walk = (node: any): void => {
+          if (node.type === 'image' && node.attrs?.src) {
+            images.push({
+              noteId: note.id,
+              noteTitle: note.title || 'Untitled',
+              noteUpdatedAt: note.updated_at,
+              src: node.attrs.src,
+              index: index++
+            })
+          }
+          if (node.content) node.content.forEach(walk)
+        }
+        walk(doc)
+      } catch { /* skip malformed content */ }
+    }
+
+    return images
+  })
 }

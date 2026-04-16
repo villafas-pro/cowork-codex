@@ -1,5 +1,5 @@
 import React from 'react'
-import { Home, FileText, Code2, GitBranch, CheckSquare, Settings, Sun, Moon } from 'lucide-react'
+import { Home, FileText, Code2, GitBranch, CheckSquare, Image, Settings, Sun, Moon } from 'lucide-react'
 import { useAppStore, type Section } from '../../store/appStore'
 
 const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
@@ -7,7 +7,8 @@ const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'notes', label: 'Notes', icon: <FileText size={18} /> },
   { id: 'code', label: 'Code', icon: <Code2 size={18} /> },
   { id: 'flow', label: 'Flow', icon: <GitBranch size={18} /> },
-  { id: 'work-items', label: 'Work Items', icon: <CheckSquare size={18} /> }
+  { id: 'work-items', label: 'Work Items', icon: <CheckSquare size={18} /> },
+  { id: 'images', label: 'Images', icon: <Image size={18} /> }
 ]
 
 export default function Sidebar(): React.JSX.Element {

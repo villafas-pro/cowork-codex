@@ -11,7 +11,8 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('notes:delete', id),
     togglePin: (id: string) => ipcRenderer.invoke('notes:togglePin', id),
     getVersions: (noteId: string) => ipcRenderer.invoke('notes:getVersions', noteId),
-    search: (query: string) => ipcRenderer.invoke('notes:search', query)
+    search: (query: string) => ipcRenderer.invoke('notes:search', query),
+    getImages: () => ipcRenderer.invoke('notes:getImages')
   },
 
   // Work Items
