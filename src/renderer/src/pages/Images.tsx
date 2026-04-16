@@ -23,14 +23,7 @@ export default function Images(): React.JSX.Element {
   async function loadImages(): Promise<void> {
     setLoading(true)
     try {
-      const fn = window.api?.notes?.getImages
-      if (typeof fn !== 'function') {
-        console.error('[Images] window.api.notes.getImages is not a function — restart the app')
-        setImages([])
-        return
-      }
-      const result = await fn()
-      console.log('[Images] loaded', result?.length ?? 0, 'images')
+      const result = await window.api?.notes.getImages()
       setImages(result || [])
     } catch (e) {
       console.error('[Images] loadImages error:', e)

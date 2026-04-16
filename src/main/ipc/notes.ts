@@ -132,8 +132,6 @@ export function registerNoteHandlers(): void {
       .prepare('SELECT id, title, updated_at, content FROM notes WHERE content IS NOT NULL')
       .all() as { id: string; title: string; updated_at: number; content: string }[]
 
-    console.log('[notes:getImages] scanning', notes.length, 'notes')
-
     const images: { noteId: string; noteTitle: string; noteUpdatedAt: number; src: string; index: number }[] = []
 
     for (const note of notes) {
@@ -153,12 +151,9 @@ export function registerNoteHandlers(): void {
           if (node.content) node.content.forEach(walk)
         }
         walk(doc)
-      } catch (e) {
-        console.error('[notes:getImages] failed to parse note', note.id, e)
-      }
+      } catch { /* skip malformed content */ }
     }
 
-    console.log('[notes:getImages] found', images.length, 'images')
     return images
   })
 }
