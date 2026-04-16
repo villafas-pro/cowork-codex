@@ -12,7 +12,7 @@ const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
 ]
 
 export default function Sidebar(): React.JSX.Element {
-  const { activeSection, setActiveSection, theme, toggleTheme } = useAppStore()
+  const { activeSection, setActiveSection, theme, toggleTheme, viewMode } = useAppStore()
 
   return (
     <aside className="flex flex-col w-[52px] h-full bg-[#0a0a0a] border-r border-[#383838] py-3 items-center titlebar-no-drag flex-shrink-0">
@@ -31,7 +31,7 @@ export default function Sidebar(): React.JSX.Element {
             className={`
               w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150
               ${
-                activeSection === item.id
+                activeSection === item.id && viewMode !== 'tab'
                   ? 'bg-[#2e2e2e] text-accent'
                   : 'text-[#888] hover:text-[#d0d0d0] hover:bg-[#222]'
               }

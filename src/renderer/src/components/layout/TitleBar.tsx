@@ -29,14 +29,14 @@ export default function TitleBar(): React.JSX.Element {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center flex-1 overflow-x-auto titlebar-no-drag h-full">
+      {/* Tabs — container stays draggable; only individual tabs are no-drag */}
+      <div className="flex items-center flex-1 overflow-x-auto h-full">
         {tabs.map((tab) => (
           <div
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`
-              flex items-center gap-2 px-3 h-full border-r border-[#303030] cursor-pointer
+              titlebar-no-drag flex items-center gap-2 px-3 h-full border-r border-[#303030] cursor-pointer
               text-xs max-w-[180px] min-w-[100px] flex-shrink-0 transition-all duration-100
               ${activeTabId === tab.id ? 'bg-[#222] text-white' : 'text-[#999] hover:text-[#ddd] hover:bg-[#191919]'}
             `}

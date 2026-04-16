@@ -22,9 +22,14 @@ export default function Images(): React.JSX.Element {
 
   async function loadImages(): Promise<void> {
     setLoading(true)
-    const result = await window.api?.notes.getImages()
-    setImages(result || [])
-    setLoading(false)
+    try {
+      const result = await window.api?.notes.getImages()
+      setImages(result || [])
+    } catch {
+      setImages([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const openLightbox = (i: number): void => setLightbox(i)
