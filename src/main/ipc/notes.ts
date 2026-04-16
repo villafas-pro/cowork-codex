@@ -129,8 +129,10 @@ export function registerNoteHandlers(): void {
   ipcMain.handle('notes:getImages', () => {
     const db = getDb()
     const notes = db
-      .prepare("SELECT id, title, updated_at, content FROM notes WHERE content IS NOT NULL AND content != '{}'")
+      .prepare('SELECT id, title, updated_at, content FROM notes WHERE content IS NOT NULL')
       .all() as { id: string; title: string; updated_at: number; content: string }[]
+
+    console.log('[notes:getImages] scanning', notes.length, 'notes')
 
     const images: { noteId: string; noteTitle: string; noteUpdatedAt: number; src: string; index: number }[] = []
 
@@ -151,9 +153,12 @@ export function registerNoteHandlers(): void {
           if (node.content) node.content.forEach(walk)
         }
         walk(doc)
-      } catch { /* skip malformed content */ }
+      } catch (e) {
+        console.error('[notes:getImages] failed to parse note', note.id, e)
+      }
     }
 
+    console.log('[notes:getImages] found', images.length, 'images')
     return images
   })
 }
