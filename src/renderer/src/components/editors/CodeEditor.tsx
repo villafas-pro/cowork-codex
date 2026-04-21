@@ -28,7 +28,6 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   const [newItemUrl, setNewItemUrl] = useState('')
   const [showAddItem, setShowAddItem] = useState(false)
   const [adoConfigured, setAdoConfigured] = useState(false)
-  const [showAdoSearch, setShowAdoSearch] = useState(false)
 
   const titleRef = useRef('')
   const languageRef = useRef('plaintext')
@@ -225,25 +224,26 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
             <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all">
               <Clipboard size={12} />
             </button>
-            <button
-              onClick={() => { adoConfigured ? setShowAdoSearch(!showAdoSearch) : setShowAddItem(!showAddItem) }}
-              className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all"
-            >
-              <Plus size={12} />
-            </button>
+            {!adoConfigured && (
+              <button
+                onClick={() => setShowAddItem(!showAddItem)}
+                className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all"
+              >
+                <Plus size={12} />
+              </button>
+            )}
           </div>
         </div>
 
-        {showAdoSearch && (
+        {adoConfigured && (
           <div className="px-3 py-2 border-b border-[#282828]">
             <WorkItemSearch
-              onAdd={(url) => { addWorkItem(url); setShowAdoSearch(false) }}
-              onCancel={() => setShowAdoSearch(false)}
+              onAdd={(url) => { addWorkItem(url) }}
             />
           </div>
         )}
 
-        {showAddItem && !showAdoSearch && (
+        {showAddItem && !adoConfigured && (
           <div className="px-3 py-2 border-b border-[#282828]">
             <input
               value={newItemUrl}

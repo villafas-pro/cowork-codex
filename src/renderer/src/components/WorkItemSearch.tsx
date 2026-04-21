@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Search, Loader, ExternalLink, User, ChevronDown } from 'lucide-react'
+import { Search, Loader, User, Plus } from 'lucide-react'
 
 interface WorkItemResult {
   id: number
@@ -12,7 +12,7 @@ interface WorkItemResult {
 
 interface Props {
   onAdd: (url: string, itemNumber: string) => void
-  onCancel: () => void
+  onCancel?: () => void
 }
 
 const WORK_ITEM_TYPES = ['', 'Bug', 'Task', 'User Story', 'Feature', 'Epic', 'Test Case']
@@ -27,7 +27,7 @@ const TYPE_COLORS: Record<string, string> = {
   'Test Case': '#004b50',
 }
 
-export default function WorkItemSearch({ onAdd, onCancel }: Props): React.JSX.Element {
+export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
   const [search, setSearch] = useState('')
   const [assignedToMe, setAssignedToMe] = useState(false)
   const [type, setType] = useState('')
@@ -75,7 +75,7 @@ export default function WorkItemSearch({ onAdd, onCancel }: Props): React.JSX.El
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="ID or title..."
-          className="flex-1 bg-transparent text-xs text-[#e5e5e5] placeholder-[#444] outline-none py-1.5"
+          className="flex-1 bg-transparent text-xs text-[#e5e5e5] placeholder-[#444] outline-none focus:outline-none py-1.5"
         />
         {loading
           ? <Loader size={11} className="text-[#555] animate-spin flex-shrink-0" />
@@ -138,38 +138,39 @@ export default function WorkItemSearch({ onAdd, onCancel }: Props): React.JSX.El
       {results.length > 0 && (
         <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
           {results.map((item) => (
-            <button
+            <div
               key={item.id}
-              onClick={() => onAdd(item.url, String(item.id))}
-              className="flex flex-col gap-0.5 px-2 py-2 rounded-lg text-left hover:bg-[#252525] transition-all group border border-transparent hover:border-[#333]"
+              className="flex items-center gap-1.5 px-2 py-2 rounded-lg hover:bg-[#252525] transition-all group border border-transparent hover:border-[#333]"
             >
-              <div className="flex items-center gap-1.5">
-                {/* Type dot */}
-                <span
-                  className="w-2 h-2 rounded-sm flex-shrink-0"
-                  style={{ background: TYPE_COLORS[item.type] || '#555' }}
-                />
-                <span className="text-xs text-[#e5e5e5] truncate flex-1">{item.title}</span>
+              {/* Type dot */}
+              <span
+                className="w-2 h-2 rounded-sm flex-shrink-0 mt-0.5"
+                style={{ background: TYPE_COLORS[item.type] || '#555' }}
+              />
+              {/* Info */}
+              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                <span className="text-xs text-[#e5e5e5] truncate">{item.title}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[#666]">#{item.id}</span>
+                  <span className="text-[10px] text-[#555]">{item.state}</span>
+                  {item.assignedTo && (
+                    <span className="text-[10px] text-[#555] truncate">{item.assignedTo.split(' ')[0]}</span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2 pl-3.5">
-                <span className="text-[10px] text-[#666]">#{item.id}</span>
-                <span className="text-[10px] text-[#555]">{item.state}</span>
-                {item.assignedTo && (
-                  <span className="text-[10px] text-[#555] truncate">{item.assignedTo.split(' ')[0]}</span>
-                )}
-              </div>
-            </button>
+              {/* Add button */}
+              <button
+                onClick={() => onAdd(item.url, String(item.id))}
+                title="Add work item"
+                className="flex-shrink-0 p-1 rounded text-[#444] hover:text-accent hover:bg-[#2a2a2a] transition-all opacity-0 group-hover:opacity-100"
+              >
+                <Plus size={13} />
+              </button>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Cancel */}
-      <button
-        onClick={onCancel}
-        className="text-xs text-[#555] hover:text-[#888] transition-colors text-center py-0.5"
-      >
-        Cancel
-      </button>
     </div>
   )
 }
