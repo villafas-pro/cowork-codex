@@ -20,7 +20,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import {
   Plus, Trash2, Pin, Square, Circle, Diamond,
-  Type, Link2, Clipboard, CheckSquare, X, ExternalLink, Minus
+  Type, Link2, Clipboard, CheckSquare, X, ExternalLink, Minus, AlertTriangle
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
@@ -126,7 +126,7 @@ const TYPE_COLORS: Record<string, string> = {
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
 function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus } = useAppStore()
   const [title, setTitle] = useState('')
   const [isPinned, setIsPinned] = useState(false)
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
@@ -536,6 +536,11 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
                   )}
                 </button>
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                  {item.is_ado && adoStatus === 'error' && (
+                    <span title="ADO connection error — data may be stale" className="text-amber-500 p-0.5">
+                      <AlertTriangle size={11} />
+                    </span>
+                  )}
                   <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-[#333] group-hover:text-[#666] transition-colors p-0.5">
                     <ExternalLink size={11} />
                   </button>

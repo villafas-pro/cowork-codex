@@ -103,7 +103,20 @@ declare global {
 }
 
 export default function App(): React.JSX.Element {
-  const { activeSection, searchOpen, setSearchOpen, setTheme, viewMode, tabs, activeTabId, restoreTabs } = useAppStore()
+  const { activeSection, searchOpen, setSearchOpen, setTheme, viewMode, tabs, activeTabId, restoreTabs, setAdoStatus } = useAppStore()
+
+  // Check ADO connection status
+  async function checkAdoConnection(): Promise<void> {
+    const configured = await window.api?.ado.isConfigured()
+    if (!configured) { setAdoStatus('unconfigured'); return }
+    setAdoStatus('checking')
+    try {
+      const result = await window.api?.ado.testConnection()
+      setAdoStatus(result?.success ? 'ok' : 'error')
+    } catch {
+      setAdoStatus('error')
+    }
+  }
 
   // Load persisted theme and restore tabs on startup
   useEffect(() => {
@@ -111,7 +124,8 @@ export default function App(): React.JSX.Element {
       const theme = (await window.api?.settings.get('theme')) as 'dark' | 'light' | undefined
       if (theme) setTheme(theme)
 
-      // Background sync all linked work items (fire and forget)
+      // Check ADO connection and background sync
+      checkAdoConnection()
       window.api?.ado.syncLinkedWorkItems().catch(() => {})
 
       const savedTabs = (await window.api?.tabs.getAll()) || []
@@ -127,6 +141,12 @@ export default function App(): React.JSX.Element {
       }
     }
     loadSettings()
+  }, [])
+
+  // Re-check ADO connection every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(checkAdoConnection, 5 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
 
   // Auto-save tabs whenever they change (debounced 500ms)

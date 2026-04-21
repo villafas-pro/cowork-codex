@@ -9,7 +9,7 @@ import Image from '@tiptap/extension-image'
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2,
   List, ListOrdered, ListChecks, Quote, Strikethrough,
-  Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin, Trash2
+  Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin, Trash2, AlertTriangle
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { NoteLink } from './extensions/NoteLink'
@@ -33,7 +33,7 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus } = useAppStore()
   const [title, setTitle] = useState('')
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
   const [newItemUrl, setNewItemUrl] = useState('')
@@ -384,6 +384,11 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
                   )}
                 </button>
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                  {item.is_ado && adoStatus === 'error' && (
+                    <span title="ADO connection error — data may be stale" className="text-amber-500 p-0.5">
+                      <AlertTriangle size={11} />
+                    </span>
+                  )}
                   <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-[#333] group-hover:text-[#666] transition-colors p-0.5">
                     <ExternalLink size={11} />
                   </button>

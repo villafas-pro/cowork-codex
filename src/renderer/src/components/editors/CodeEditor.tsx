@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
-import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, CheckSquare, Square, ExternalLink, X } from 'lucide-react'
+import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, CheckSquare, Square, ExternalLink, X, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
 
@@ -28,7 +28,7 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus } = useAppStore()
   const [title, setTitle] = useState('')
   const [language, setLanguage] = useState('plaintext')
   const [content, setContent] = useState('')
@@ -307,6 +307,11 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
                   )}
                 </button>
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                  {item.is_ado && adoStatus === 'error' && (
+                    <span title="ADO connection error — data may be stale" className="text-amber-500 p-0.5">
+                      <AlertTriangle size={11} />
+                    </span>
+                  )}
                   <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-[#333] group-hover:text-[#666] transition-colors p-0.5">
                     <ExternalLink size={11} />
                   </button>

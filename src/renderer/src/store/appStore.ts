@@ -50,6 +50,10 @@ interface AppStore {
   // Global search
   searchOpen: boolean
   setSearchOpen: (open: boolean) => void
+
+  // ADO connection status
+  adoStatus: 'ok' | 'error' | 'unconfigured' | 'checking'
+  setAdoStatus: (status: 'ok' | 'error' | 'unconfigured' | 'checking') => void
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -161,5 +165,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   searchOpen: false,
-  setSearchOpen: (open) => set({ searchOpen: open })
+  setSearchOpen: (open) => set({ searchOpen: open }),
+
+  adoStatus: 'unconfigured',
+  setAdoStatus: (status) => set({ adoStatus: status })
 }))

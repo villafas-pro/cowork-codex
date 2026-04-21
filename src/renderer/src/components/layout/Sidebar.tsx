@@ -1,5 +1,5 @@
 import React from 'react'
-import { Home, FileText, Code2, GitBranch, CheckSquare, Image, Settings, Sun, Moon } from 'lucide-react'
+import { Home, FileText, Code2, GitBranch, CheckSquare, Image, Settings, Sun, Moon, AlertTriangle } from 'lucide-react'
 import { useAppStore, type Section } from '../../store/appStore'
 
 const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
@@ -12,7 +12,8 @@ const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
 ]
 
 export default function Sidebar(): React.JSX.Element {
-  const { activeSection, setActiveSection, theme, toggleTheme, viewMode } = useAppStore()
+  const { activeSection, setActiveSection, theme, toggleTheme, viewMode, adoStatus } = useAppStore()
+  const adoError = adoStatus === 'error'
 
   return (
     <aside className="flex flex-col w-[52px] h-full bg-[#0a0a0a] border-r border-[#383838] py-3 items-center titlebar-no-drag flex-shrink-0">
@@ -26,10 +27,10 @@ export default function Sidebar(): React.JSX.Element {
         {navItems.map((item) => (
           <button
             key={item.id}
-            title={item.label}
+            title={item.id === 'work-items' && adoError ? 'Work Items — ADO connection error' : item.label}
             onClick={() => setActiveSection(item.id)}
             className={`
-              w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150
+              relative w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150
               ${
                 activeSection === item.id && viewMode !== 'tab'
                   ? 'bg-[#2e2e2e] text-accent'
@@ -38,12 +39,24 @@ export default function Sidebar(): React.JSX.Element {
             `}
           >
             {item.icon}
+            {item.id === 'work-items' && adoError && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-[#0a0a0a]" />
+            )}
           </button>
         ))}
       </nav>
 
       {/* Bottom controls */}
       <div className="flex flex-col gap-1 w-full px-1.5">
+        {adoError && (
+          <button
+            title="ADO connection error — click to go to Settings"
+            onClick={() => setActiveSection('settings')}
+            className="w-full flex items-center justify-center p-2.5 rounded-md text-amber-500 hover:bg-[#222] transition-all duration-150"
+          >
+            <AlertTriangle size={15} />
+          </button>
+        )}
         <button
           title="Toggle theme"
           onClick={toggleTheme}

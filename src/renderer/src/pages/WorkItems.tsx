@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { CheckSquare, Square, ExternalLink, Link2, FileText, Code2, Workflow, Plus } from 'lucide-react'
+import { CheckSquare, Square, ExternalLink, Link2, FileText, Code2, Workflow, Plus, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 import WorkItemSearch from '../components/WorkItemSearch'
 
@@ -34,7 +34,7 @@ function effectiveDone(item: WorkItem): boolean {
 }
 
 export default function WorkItems(): React.JSX.Element {
-  const { openTab } = useAppStore()
+  const { openTab, adoStatus } = useAppStore()
   const [items, setItems] = useState<WorkItem[]>([])
   const [filter, setFilter] = useState<'all' | 'open' | 'done'>('all')
   const [adoConfigured, setAdoConfigured] = useState(false)
@@ -234,6 +234,11 @@ export default function WorkItems(): React.JSX.Element {
 
                     {/* Actions */}
                     <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                      {item.is_ado && adoStatus === 'error' && (
+                        <span title="ADO connection error — data may be stale" className="text-amber-500 p-1">
+                          <AlertTriangle size={13} />
+                        </span>
+                      )}
                       {/* Create-linked toggle */}
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : item.id)}
