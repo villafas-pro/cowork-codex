@@ -301,9 +301,9 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
               transition: 'max-height 1.1s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div className="px-3 pb-5 flex flex-col gap-4 border-t border-[#363636] pt-4">
+            <div className="border-t border-[#363636]">
               {detailsLoading && !details && (
-                <div className="flex items-center gap-1.5 py-1">
+                <div className="flex items-center gap-1.5 px-3 py-3">
                   <Loader size={10} className="text-[#888] animate-spin" />
                   <span className="text-[11px] text-[#888]">Loading details…</span>
                 </div>
@@ -311,6 +311,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
 
               {details && (
                 <div
+                  className="px-3 pt-4 pb-5 flex flex-col gap-4"
                   style={{
                     opacity: detailsVisible ? 1 : 0,
                     transition: 'opacity 0.3s ease',
@@ -355,7 +356,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
 
                   {/* Description snippet */}
                   {details.description && (
-                    <p className="text-[11px] text-[#b0b0b0] leading-relaxed line-clamp-3 mt-0.5 border-t border-[#363636] pt-2">
+                    <p className="text-[11px] text-[#b0b0b0] leading-relaxed line-clamp-3 border-t border-[#363636] pt-3">
                       {stripHtml(details.description).slice(0, 220)}
                       {stripHtml(details.description).length > 220 ? '…' : ''}
                     </p>
