@@ -135,7 +135,7 @@ export default function GlobalSearch(): React.JSX.Element {
 
         {!query && (
           <div className="px-4 py-4 text-center text-[#777] text-xs">
-            Type to search notes, code, flows, and work items
+            Type to search notes, code, flows, and ADO work items
           </div>
         )}
       </div>

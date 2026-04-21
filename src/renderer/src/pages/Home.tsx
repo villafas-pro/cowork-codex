@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { FileText, Clock, AlertCircle, Pin, Search, Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, ListChecks, Quote } from 'lucide-react'
+import { FileText, Clock, AlertCircle, Pin, Search, Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, ListChecks, Quote, CheckSquare } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -16,10 +16,32 @@ interface NoteItem {
   all_work_items_done: number
 }
 
+interface WorkItemSummary {
+  item_number: string
+  cached_title: string | null
+  cached_type: string | null
+  cached_state: string | null
+  cached_assigned_to: string | null
+  is_ado: number
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  'Bug': '#cc3333', 'Task': '#007acc', 'User Story': '#009933',
+  'Feature': '#773b93', 'Epic': '#ff6600', 'Test Case': '#004b50',
+}
+
+const STATE_COLORS: Record<string, string> = {
+  'Active': '#007acc', 'In Progress': '#007acc', 'New': '#888',
+  'Resolved': '#009933', 'Done': '#009933', 'Closed': '#555', 'Removed': '#555',
+}
+
+const DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
+
 export default function Home(): React.JSX.Element {
   const { openTab, setSearchOpen } = useAppStore()
   const [recentNotes, setRecentNotes] = useState<NoteItem[]>([])
   const [activeNotes, setActiveNotes] = useState<NoteItem[]>([])
+  const [openWorkItems, setOpenWorkItems] = useState<WorkItemSummary[]>([])
   const scratchSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scratchLoaded = useRef(false)
   const pendingScratch = useRef<any>(null)
@@ -45,6 +67,7 @@ export default function Home(): React.JSX.Element {
   useEffect(() => {
     loadNotes()
     loadScratch()
+    loadOpenWorkItems()
   }, [])
 
   // Apply pending scratch content once editor is ready
@@ -73,6 +96,15 @@ export default function Home(): React.JSX.Element {
     } catch {
       scratchLoaded.current = true
     }
+  }
+
+  async function loadOpenWorkItems(): Promise<void> {
+    const all: WorkItemSummary[] = (await window.api?.workItems.getAll()) || []
+    const open = all.filter((wi) => {
+      if (wi.is_ado && wi.cached_state) return !DONE_STATES.has(wi.cached_state)
+      return true // non-ADO items without state always show
+    }).slice(0, 8)
+    setOpenWorkItems(open)
   }
 
   async function loadNotes(): Promise<void> {
@@ -122,14 +154,12 @@ export default function Home(): React.JSX.Element {
       </div>
 
       <div className="flex-1 overflow-y-auto px-8 pb-8">
-        <div className="grid grid-cols-2 gap-8 max-w-4xl">
+        <div className={`grid gap-8 max-w-5xl ${openWorkItems.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
           {/* Recently opened */}
           <section>
             <div className="flex items-center gap-2 mb-3">
               <Clock size={13} className="text-[#888]" />
-              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">
-                Recently Opened
-              </h2>
+              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">Recently Opened</h2>
             </div>
             <div className="flex flex-col gap-1.5">
               {recentNotes.length === 0 ? (
@@ -144,9 +174,7 @@ export default function Home(): React.JSX.Element {
           <section>
             <div className="flex items-center gap-2 mb-3">
               <AlertCircle size={13} className="text-[#888]" />
-              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">
-                Still Active
-              </h2>
+              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">Still Active</h2>
             </div>
             <div className="flex flex-col gap-1.5">
               {activeNotes.length === 0 ? (
@@ -156,6 +184,50 @@ export default function Home(): React.JSX.Element {
               )}
             </div>
           </section>
+
+          {/* Open work items */}
+          {openWorkItems.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <CheckSquare size={13} className="text-[#888]" />
+                <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">Open Work Items</h2>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {openWorkItems.map((wi) => {
+                  const typeColor = TYPE_COLORS[wi.cached_type || ''] || '#555'
+                  const stateColor = STATE_COLORS[wi.cached_state || ''] || '#888'
+                  return (
+                    <button
+                      key={wi.item_number}
+                      onClick={() => openTab({ entityType: 'work-item', entityId: wi.item_number, title: wi.cached_title || `#${wi.item_number}` })}
+                      className="flex items-start gap-2.5 p-3 rounded-lg bg-[#202020] hover:bg-[#282828] border border-[#383838] hover:border-[#484848] transition-all text-left w-full"
+                    >
+                      <CheckSquare size={13} className="text-[#555] flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-[#f0f0f0] truncate">{wi.cached_title || `#${wi.item_number}`}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {wi.cached_type && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                              style={{ background: typeColor + '22', color: typeColor, border: `1px solid ${typeColor}44` }}>
+                              {wi.cached_type}
+                            </span>
+                          )}
+                          {wi.cached_state && (
+                            <span className="text-[10px]" style={{ color: stateColor }}>
+                              {wi.cached_state}
+                            </span>
+                          )}
+                          {wi.cached_assigned_to && (
+                            <span className="text-[10px] text-[#555] truncate">{wi.cached_assigned_to}</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Quick Scratch Pad */}

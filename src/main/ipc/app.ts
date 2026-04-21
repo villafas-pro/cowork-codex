@@ -94,10 +94,25 @@ export function registerAppHandlers(): void {
       FROM flows WHERE title LIKE ? LIMIT 10
     `).all(`%${query}%`)
 
+    // Search local work_items joined with cached ADO titles/state
     const workItems = db.prepare(`
-      SELECT id, item_number as title, updated_at, 'work-item' as type, url as snippet
-      FROM work_items WHERE item_number LIKE ? OR url LIKE ? LIMIT 10
-    `).all(`%${query}%`, `%${query}%`)
+      SELECT
+        wi.item_number as id,
+        COALESCE(cwi.title, '#' || wi.item_number) as title,
+        wi.updated_at,
+        'work-item' as type,
+        CASE WHEN cwi.type IS NOT NULL
+          THEN cwi.type || ' · ' || cwi.state
+          ELSE wi.url
+        END as snippet
+      FROM work_items wi
+      LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
+      WHERE wi.item_number LIKE ?
+         OR cwi.title LIKE ?
+         OR cwi.assigned_to LIKE ?
+         OR cwi.type LIKE ?
+      LIMIT 10
+    `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`)
 
     return [...notes, ...code, ...flows, ...workItems]
   })
