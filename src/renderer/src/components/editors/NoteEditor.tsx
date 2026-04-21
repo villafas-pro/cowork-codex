@@ -342,12 +342,12 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
                   {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
                 </button>
                 <button
-                  onClick={() => window.api?.shell.openExternal(item.url)}
+                  onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: `#${item.item_number}` })}
                   className={`flex-1 text-left text-xs truncate transition-all hover:text-accent ${item.is_done ? 'line-through text-[#444]' : 'text-[#bbb]'}`}
                 >
                   #{item.item_number}
                 </button>
-                <button onClick={() => window.api?.shell.openExternal(item.url)} className="flex-shrink-0 text-[#333] group-hover:text-[#666] transition-colors">
+                <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="flex-shrink-0 text-[#333] group-hover:text-[#666] transition-colors">
                   <ExternalLink size={11} />
                 </button>
                 <button onClick={() => removeWorkItem(item.id)} className="flex-shrink-0 text-[#333] group-hover:text-[#666] hover:!text-red-400 transition-colors">

@@ -100,7 +100,9 @@ const api = {
     setConfig: (config: object) => ipcRenderer.invoke('ado:setConfig', config),
     testConnection: () => ipcRenderer.invoke('ado:testConnection'),
     search: (filters: object) => ipcRenderer.invoke('ado:search', filters),
-    isConfigured: () => ipcRenderer.invoke('ado:isConfigured')
+    isConfigured: () => ipcRenderer.invoke('ado:isConfigured'),
+    fetchWorkItem: (adoId: number, force?: boolean) => ipcRenderer.invoke('ado:fetchWorkItem', adoId, force),
+    syncLinkedWorkItems: () => ipcRenderer.invoke('ado:syncLinkedWorkItems')
   },
 
   // Window controls (for custom title bar)

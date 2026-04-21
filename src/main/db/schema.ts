@@ -128,6 +128,29 @@ export function initializeSchema(db: Database.Database): void {
       value TEXT NOT NULL
     );
 
+    -- Cached ADO Work Items (local read-only mirror)
+    CREATE TABLE IF NOT EXISTS cached_work_items (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      type TEXT NOT NULL DEFAULT '',
+      state TEXT NOT NULL DEFAULT '',
+      assigned_to TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      acceptance_criteria TEXT NOT NULL DEFAULT '',
+      tags TEXT NOT NULL DEFAULT '',
+      iteration_path TEXT NOT NULL DEFAULT '',
+      area_path TEXT NOT NULL DEFAULT '',
+      priority INTEGER,
+      story_points REAL,
+      parent_id INTEGER,
+      comment_count INTEGER NOT NULL DEFAULT 0,
+      ado_url TEXT NOT NULL DEFAULT '',
+      created_at_ado TEXT NOT NULL DEFAULT '',
+      changed_at_ado TEXT NOT NULL DEFAULT '',
+      last_synced_at INTEGER NOT NULL DEFAULT 0
+    );
+
     -- Full Text Search virtual table for notes
     CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
       id UNINDEXED,

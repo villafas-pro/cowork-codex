@@ -230,6 +230,119 @@ body {
   background: rgba(232, 184, 0, 0.2);
 }
 
+/* ADO HTML content rendering */
+.ado-html {
+  color: #d0d0d0;
+}
+
+.ado-html p {
+  margin-bottom: 0.6rem;
+  line-height: 1.7;
+}
+
+.ado-html h1, .ado-html h2, .ado-html h3, .ado-html h4 {
+  color: #e5e5e5;
+  font-weight: 600;
+  margin-top: 1.2rem;
+  margin-bottom: 0.4rem;
+}
+
+.ado-html h1 { font-size: 1.1rem; }
+.ado-html h2 { font-size: 1rem; }
+.ado-html h3 { font-size: 0.9rem; }
+
+.ado-html ul, .ado-html ol {
+  padding-left: 1.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.ado-html li {
+  margin-bottom: 0.25rem;
+  line-height: 1.6;
+}
+
+.ado-html strong, .ado-html b {
+  color: #e5e5e5;
+  font-weight: 600;
+}
+
+.ado-html em, .ado-html i {
+  font-style: italic;
+}
+
+.ado-html code {
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 0.8em;
+  background: #2a2a2a;
+  border: 1px solid #383838;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  color: #e8b800;
+}
+
+.ado-html pre {
+  background: #1a1a1a;
+  border: 1px solid #303030;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+  font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #ccc;
+}
+
+.ado-html a {
+  color: #e8b800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ado-html a:hover {
+  color: #f5d020;
+}
+
+.ado-html blockquote {
+  border-left: 3px solid #383838;
+  padding-left: 0.75rem;
+  margin-left: 0;
+  color: #888;
+  font-style: italic;
+  margin-bottom: 0.6rem;
+}
+
+.ado-html table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.ado-html th, .ado-html td {
+  border: 1px solid #303030;
+  padding: 0.4rem 0.65rem;
+  text-align: left;
+}
+
+.ado-html th {
+  background: #202020;
+  color: #ccc;
+  font-weight: 600;
+}
+
+.ado-html img {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+}
+
+.ado-html hr {
+  border: none;
+  border-top: 1px solid #2a2a2a;
+  margin: 1rem 0;
+}
+
 /* ReactFlow dark theme overrides */
 .react-flow__controls {
   background: #202020 !important;

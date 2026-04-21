@@ -13,6 +13,7 @@ import Settings from './pages/Settings'
 import NoteEditor from './components/editors/NoteEditor'
 import CodeEditor from './components/editors/CodeEditor'
 import FlowEditor from './components/editors/FlowEditor'
+import WorkItemViewer from './components/editors/WorkItemViewer'
 
 // Type augmentation for window.api
 declare global {
@@ -93,6 +94,8 @@ declare global {
         testConnection: () => Promise<any>
         search: (filters: object) => Promise<any[]>
         isConfigured: () => Promise<boolean>
+        fetchWorkItem: (adoId: number, force?: boolean) => Promise<any>
+        syncLinkedWorkItems: () => Promise<void>
       }
     }
   }
@@ -106,6 +109,9 @@ export default function App(): React.JSX.Element {
     async function loadSettings(): Promise<void> {
       const theme = (await window.api?.settings.get('theme')) as 'dark' | 'light' | undefined
       if (theme) setTheme(theme)
+
+      // Background sync all linked work items (fire and forget)
+      window.api?.ado.syncLinkedWorkItems().catch(() => {})
 
       const savedTabs = (await window.api?.tabs.getAll()) || []
       if (savedTabs.length > 0) {
@@ -166,6 +172,9 @@ export default function App(): React.JSX.Element {
         }
         if (activeTab.entityType === 'flow') {
           return <FlowEditor flowId={activeTab.entityId} />
+        }
+        if (activeTab.entityType === 'work-item') {
+          return <WorkItemViewer adoId={activeTab.entityId} />
         }
       }
     }

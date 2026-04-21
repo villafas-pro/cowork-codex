@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Search, Loader, User, Plus } from 'lucide-react'
+import { useAppStore } from '../store/appStore'
 
 interface WorkItemResult {
   id: number
@@ -28,6 +29,7 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
+  const { openTab } = useAppStore()
   const [search, setSearch] = useState('')
   const [assignedToMe, setAssignedToMe] = useState(false)
   const [type, setType] = useState('')
@@ -140,7 +142,8 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
           {results.map((item) => (
             <div
               key={item.id}
-              className="flex items-center gap-1.5 px-2 py-2 rounded-lg hover:bg-[#252525] transition-all group border border-transparent hover:border-[#333]"
+              onClick={() => openTab({ entityType: 'work-item', entityId: String(item.id), title: `#${item.id}` })}
+              className="flex items-center gap-1.5 px-2 py-2 rounded-lg hover:bg-[#252525] transition-all group border border-transparent hover:border-[#333] cursor-pointer"
             >
               {/* Type dot */}
               <span
@@ -160,8 +163,8 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
               </div>
               {/* Add button */}
               <button
-                onClick={() => onAdd(item.url, String(item.id))}
-                title="Add work item"
+                onClick={(e) => { e.stopPropagation(); onAdd(item.url, String(item.id)) }}
+                title="Link to current item"
                 className="flex-shrink-0 p-1 rounded text-[#444] hover:text-accent hover:bg-[#2a2a2a] transition-all opacity-0 group-hover:opacity-100"
               >
                 <Plus size={13} />
