@@ -297,11 +297,11 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
           <div
             className="overflow-hidden"
             style={{
-              maxHeight: details ? '360px' : detailsLoading ? '48px' : '0px',
-              transition: 'max-height 0.65s cubic-bezier(0.16, 1, 0.3, 1)',
+              maxHeight: details ? '420px' : detailsLoading ? '52px' : '0px',
+              transition: 'max-height 1.1s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div className="px-3 pb-4 flex flex-col gap-3 border-t border-[#363636] pt-3">
+            <div className="px-3 pb-5 flex flex-col gap-4 border-t border-[#363636] pt-4">
               {detailsLoading && !details && (
                 <div className="flex items-center gap-1.5 py-1">
                   <Loader size={10} className="text-[#888] animate-spin" />
