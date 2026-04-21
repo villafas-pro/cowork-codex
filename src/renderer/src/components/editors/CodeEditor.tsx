@@ -15,6 +15,16 @@ interface WorkItem {
   url: string
   item_number: string
   is_done: number
+  is_ado: number
+  cached_title: string | null
+  cached_type: string | null
+  cached_state: string | null
+  cached_assigned_to: string | null
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  'Bug': '#cc3333', 'Task': '#007acc', 'User Story': '#009933',
+  'Feature': '#773b93', 'Epic': '#ff6600', 'Test Case': '#004b50',
 }
 
 export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.Element {
@@ -261,22 +271,37 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
             <p className="text-xs text-[#333] text-center py-6">No linked work items</p>
           ) : (
             workItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-2 px-3 py-2 group hover:bg-[#1a1a1a] transition-all">
-                <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-[#555] hover:text-accent transition-colors">
+              <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-[#1a1a1a] transition-all">
+                <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5">
                   {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
                 </button>
                 <button
-                  onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: `#${item.item_number}` })}
-                  className={`flex-1 text-left text-xs truncate transition-all hover:text-accent ${item.is_done ? 'line-through text-[#444]' : 'text-[#bbb]'}`}
+                  onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: item.cached_title || `#${item.item_number}` })}
+                  className={`flex-1 text-left min-w-0 transition-all hover:text-accent ${item.is_done ? 'opacity-40' : ''}`}
                 >
-                  #{item.item_number}
+                  {item.cached_title ? (
+                    <>
+                      <p className="text-xs text-[#ddd] truncate leading-snug">{item.cached_title}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {item.cached_type && (
+                          <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: TYPE_COLORS[item.cached_type] || '#666' }} />
+                        )}
+                        <span className="text-[10px] text-[#555]">#{item.item_number}</span>
+                        {item.cached_state && <span className="text-[10px] text-[#555]">· {item.cached_state}</span>}
+                      </div>
+                    </>
+                  ) : (
+                    <p className={`text-xs truncate ${item.is_done ? 'line-through text-[#444]' : 'text-[#bbb]'}`}>#{item.item_number}</p>
+                  )}
                 </button>
-                <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="flex-shrink-0 text-[#333] group-hover:text-[#666] transition-colors">
-                  <ExternalLink size={11} />
-                </button>
-                <button onClick={() => removeWorkItem(item.id)} className="flex-shrink-0 text-[#333] group-hover:text-[#666] hover:!text-red-400 transition-colors">
-                  <X size={11} />
-                </button>
+                <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                  <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-[#333] group-hover:text-[#666] transition-colors p-0.5">
+                    <ExternalLink size={11} />
+                  </button>
+                  <button onClick={() => removeWorkItem(item.id)} className="text-[#333] group-hover:text-[#666] hover:!text-red-400 transition-colors p-0.5">
+                    <X size={11} />
+                  </button>
+                </div>
               </div>
             ))
           )}

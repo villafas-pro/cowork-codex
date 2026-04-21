@@ -4,24 +4,41 @@ import { getDb } from '../db'
 import type { WorkItem } from '@shared/types'
 
 export function registerWorkItemHandlers(): void {
-  // Get all work items
+  // Get all work items (enriched with cached ADO data)
   ipcMain.handle('workItems:getAll', () => {
     const db = getDb()
-    return db.prepare('SELECT * FROM work_items ORDER BY created_at DESC').all()
+    return db.prepare(`
+      SELECT
+        wi.*,
+        CASE WHEN wi.url LIKE '%dev.azure.com%' THEN 1 ELSE 0 END as is_ado,
+        cwi.title  as cached_title,
+        cwi.type   as cached_type,
+        cwi.state  as cached_state,
+        cwi.assigned_to as cached_assigned_to
+      FROM work_items wi
+      LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
+      ORDER BY wi.created_at DESC
+    `).all()
   })
 
-  // Get work items for an entity
+  // Get work items for an entity (enriched with cached ADO data)
   ipcMain.handle('workItems:getForEntity', (_, entityType: string, entityId: string) => {
     const db = getDb()
-    return db
-      .prepare(`
-        SELECT wi.*, wil.id as link_id
-        FROM work_items wi
-        JOIN work_item_links wil ON wi.id = wil.work_item_id
-        WHERE wil.entity_type = ? AND wil.entity_id = ?
-        ORDER BY wi.created_at DESC
-      `)
-      .all(entityType, entityId)
+    return db.prepare(`
+      SELECT
+        wi.*,
+        wil.id as link_id,
+        CASE WHEN wi.url LIKE '%dev.azure.com%' THEN 1 ELSE 0 END as is_ado,
+        cwi.title  as cached_title,
+        cwi.type   as cached_type,
+        cwi.state  as cached_state,
+        cwi.assigned_to as cached_assigned_to
+      FROM work_items wi
+      JOIN work_item_links wil ON wi.id = wil.work_item_id
+      LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
+      WHERE wil.entity_type = ? AND wil.entity_id = ?
+      ORDER BY wi.created_at DESC
+    `).all(entityType, entityId)
   })
 
   // Create work item
