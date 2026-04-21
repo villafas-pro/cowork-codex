@@ -208,8 +208,32 @@ export default function Settings(): React.JSX.Element {
 
         {/* About */}
         <section>
-          <h2 className="text-xs font-semibold text-th-tx-5 uppercase tracking-wider mb-3">About</h2>
-          <p className="text-xs text-th-tx-6">Cowork Codex — personal dev notepad</p>
+          <h2 className="text-xs font-semibold text-[#e8b800] uppercase tracking-wider mb-4">About</h2>
+          <div className="space-y-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-semibold text-th-tx-1">Cowork Codex</span>
+              <span className="text-xs text-th-tx-5">v1.0.0</span>
+            </div>
+            <p className="text-xs text-th-tx-4 leading-relaxed">
+              A personal desktop workspace for developers — notes, code snippets, flow diagrams,
+              and work item tracking, all in one place.
+            </p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 pt-1">
+              {[
+                ['Runtime', 'Electron 29'],
+                ['UI', 'React 18 + TypeScript'],
+                ['Editor', 'TipTap 2 · Monaco'],
+                ['Database', 'SQLite (better-sqlite3)'],
+                ['Diagrams', 'ReactFlow 11'],
+                ['State', 'Zustand'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-th-tx-6 w-16 flex-shrink-0">{label}</span>
+                  <span className="text-[10px] text-th-tx-4">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       </div>
     </div>
