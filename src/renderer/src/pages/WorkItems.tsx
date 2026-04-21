@@ -2,36 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { CheckSquare, Square, ExternalLink, Link2, FileText, Code2, Workflow, Plus, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 import WorkItemSearch from '../components/WorkItemSearch'
-
-interface WorkItem {
-  id: string
-  url: string
-  item_number: string
-  is_done: number
-  is_ado: number
-  cached_title: string | null
-  cached_type: string | null
-  cached_state: string | null
-  cached_assigned_to: string | null
-  created_at: number
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  'Bug': '#cc3333', 'Task': '#007acc', 'User Story': '#009933',
-  'Feature': '#773b93', 'Epic': '#ff6600', 'Test Case': '#004b50',
-}
-
-const STATE_COLORS: Record<string, string> = {
-  'Active': '#007acc', 'In Progress': '#007acc', 'New': '#888',
-  'Resolved': '#009933', 'Done': '#009933', 'Closed': '#555', 'Removed': '#555',
-}
-
-const DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
-
-function effectiveDone(item: WorkItem): boolean {
-  if (item.is_ado && item.cached_state) return DONE_STATES.has(item.cached_state)
-  return !!item.is_done
-}
+import { type WorkItem, TYPE_COLORS, STATE_COLORS, DONE_STATES, effectiveDone } from '../lib/workItemUtils'
 
 export default function WorkItems(): React.JSX.Element {
   const { openTab, adoStatus } = useAppStore()
@@ -73,7 +44,7 @@ export default function WorkItems(): React.JSX.Element {
     const title = item.cached_title || `#${item.item_number}`
     setCreating(item.id + entityType)
     try {
-      let entity: any
+      let entity: { id: string } | null | undefined
       if (entityType === 'note') {
         entity = await window.api?.notes.create({ title })
       } else if (entityType === 'code') {
@@ -104,12 +75,12 @@ export default function WorkItems(): React.JSX.Element {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#303030] flex-shrink-0">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-th-bd-1 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <Link2 size={14} className="text-[#666]" />
-          <h1 className="text-sm font-medium text-[#d0d0d0]">Work Items</h1>
+          <Link2 size={14} className="text-th-tx-5" />
+          <h1 className="text-sm font-medium text-th-tx-2">Work Items</h1>
           {openCount > 0 && (
-            <span className="text-[10px] bg-[#252525] border border-[#383838] text-[#888] px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] bg-th-bg-5 border border-th-bd-2 text-th-tx-4 px-1.5 py-0.5 rounded-full">
               {openCount} open
             </span>
           )}
@@ -118,7 +89,7 @@ export default function WorkItems(): React.JSX.Element {
 
       {/* Search bar (ADO search to open items) */}
       {adoConfigured && (
-        <div className="px-5 py-3 border-b border-[#282828] flex-shrink-0">
+        <div className="px-5 py-3 border-b border-th-bd-1 flex-shrink-0">
           <WorkItemSearch
             onAdd={(_url, itemNumber) => {
               openTab({ entityType: 'work-item', entityId: itemNumber, title: `#${itemNumber}` })
@@ -136,13 +107,13 @@ export default function WorkItems(): React.JSX.Element {
             onClick={() => setFilter(f)}
             className={`px-3 py-1 rounded-md text-xs transition-all capitalize ${
               filter === f
-                ? 'bg-[#252525] border border-[#404040] text-[#e0e0e0]'
-                : 'text-[#666] hover:text-[#aaa]'
+                ? 'bg-th-bg-5 border border-th-bd-3 text-th-tx-1'
+                : 'text-th-tx-5 hover:text-th-tx-3'
             }`}
           >
             {f}
-            {f === 'open' && openCount > 0 && <span className="ml-1 text-[#555]">{openCount}</span>}
-            {f === 'done' && doneCount > 0 && <span className="ml-1 text-[#555]">{doneCount}</span>}
+            {f === 'open' && openCount > 0 && <span className="ml-1 text-th-tx-6">{openCount}</span>}
+            {f === 'done' && doneCount > 0 && <span className="ml-1 text-th-tx-6">{doneCount}</span>}
           </button>
         ))}
       </div>
@@ -151,12 +122,12 @@ export default function WorkItems(): React.JSX.Element {
       <div className="flex-1 overflow-y-auto px-5 py-3">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2">
-            <Link2 size={24} className="text-[#333]" />
-            <p className="text-sm text-[#555]">
+            <Link2 size={24} className="text-th-tx-6" />
+            <p className="text-sm text-th-tx-6">
               {filter === 'done' ? 'No completed items' : filter === 'open' ? 'No open items' : 'No work items yet'}
             </p>
             {filter === 'all' && (
-              <p className="text-xs text-[#444]">Link an Azure DevOps item from a note, code block, or flow to see it here</p>
+              <p className="text-xs text-th-tx-6">Link an Azure DevOps item from a note, code block, or flow to see it here</p>
             )}
           </div>
         ) : (
@@ -169,20 +140,20 @@ export default function WorkItems(): React.JSX.Element {
                   key={item.id}
                   className={`rounded-xl border transition-all ${
                     done
-                      ? 'bg-[#161616] border-[#282828] opacity-50'
-                      : 'bg-[#1e1e1e] border-[#303030] hover:border-[#404040]'
+                      ? 'bg-[#161616] border-th-bd-1 opacity-50'
+                      : 'bg-th-bg-3 border-th-bd-1 hover:border-th-bd-3'
                   }`}
                 >
                   <div className="flex items-start gap-3 p-3">
                     {/* Checkbox */}
                     {item.is_ado ? (
-                      <span className="flex-shrink-0 text-[#555] mt-0.5 cursor-default" title="State managed by ADO">
+                      <span className="flex-shrink-0 text-th-tx-6 mt-0.5 cursor-default" title="State managed by ADO">
                         {done ? <CheckSquare size={15} className="text-accent" /> : <Square size={15} />}
                       </span>
                     ) : (
                       <button
                         onClick={() => toggleDone(item.id)}
-                        className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5"
+                        className="flex-shrink-0 text-th-tx-6 hover:text-accent transition-colors mt-0.5"
                       >
                         {done ? <CheckSquare size={15} className="text-accent" /> : <Square size={15} />}
                       </button>
@@ -216,17 +187,17 @@ export default function WorkItems(): React.JSX.Element {
                                 {item.cached_state}
                               </span>
                             )}
-                            <span className="text-[10px] text-[#444] ml-auto">#{item.item_number}</span>
+                            <span className="text-[10px] text-th-tx-6 ml-auto">#{item.item_number}</span>
                           </div>
-                          <p className={`text-sm leading-snug group-hover/title:text-accent transition-colors ${done ? 'line-through text-[#555]' : 'text-[#e0e0e0]'}`}>
+                          <p className={`text-sm leading-snug group-hover/title:text-accent transition-colors ${done ? 'line-through text-th-tx-6' : 'text-th-tx-1'}`}>
                             {item.cached_title}
                           </p>
                           {item.cached_assigned_to && (
-                            <p className="text-[11px] text-[#555] mt-1">{item.cached_assigned_to}</p>
+                            <p className="text-[11px] text-th-tx-6 mt-1">{item.cached_assigned_to}</p>
                           )}
                         </>
                       ) : (
-                        <p className={`text-sm group-hover/title:text-accent transition-colors ${done ? 'line-through text-[#555]' : 'text-[#ccc]'}`}>
+                        <p className={`text-sm group-hover/title:text-accent transition-colors ${done ? 'line-through text-th-tx-6' : 'text-th-tx-2'}`}>
                           #{item.item_number}
                         </p>
                       )}
@@ -243,7 +214,7 @@ export default function WorkItems(): React.JSX.Element {
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : item.id)}
                         title="Create linked note/code/flow"
-                        className={`p-1 rounded transition-all ${isExpanded ? 'text-accent bg-[#252525]' : 'text-[#333] hover:text-[#666]'}`}
+                        className={`p-1 rounded transition-all ${isExpanded ? 'text-accent bg-th-bg-5' : 'text-th-tx-6 hover:text-th-tx-5'}`}
                       >
                         <Plus size={13} />
                       </button>
@@ -251,7 +222,7 @@ export default function WorkItems(): React.JSX.Element {
                       <button
                         onClick={() => window.api?.shell.openExternal(item.url)}
                         title="Open in ADO"
-                        className="p-1 rounded text-[#333] hover:text-[#666] transition-colors"
+                        className="p-1 rounded text-th-tx-6 hover:text-th-tx-5 transition-colors"
                       >
                         <ExternalLink size={13} />
                       </button>
@@ -261,7 +232,7 @@ export default function WorkItems(): React.JSX.Element {
                   {/* Create-entity actions panel */}
                   {isExpanded && (
                     <div className="flex items-center gap-1.5 px-3 pb-3 pt-0">
-                      <span className="text-[10px] text-[#555] mr-1">Create linked:</span>
+                      <span className="text-[10px] text-th-tx-6 mr-1">Create linked:</span>
                       {[
                         { type: 'note' as const, label: 'Note', Icon: FileText },
                         { type: 'code' as const, label: 'Code', Icon: Code2 },
@@ -271,7 +242,7 @@ export default function WorkItems(): React.JSX.Element {
                           key={type}
                           onClick={() => createLinked(item, type)}
                           disabled={creating === item.id + type}
-                          className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border border-[#383838] text-[#aaa] hover:text-white hover:border-[#555] transition-all disabled:opacity-40"
+                          className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border border-th-bd-2 text-th-tx-3 hover:text-th-tx-1 hover:border-th-bd-3 transition-all disabled:opacity-40"
                         >
                           <Icon size={10} />
                           {label}

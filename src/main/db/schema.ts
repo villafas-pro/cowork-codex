@@ -13,7 +13,10 @@ export function initializeSchema(db: Database.Database): void {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       is_pinned INTEGER NOT NULL DEFAULT 0,
-      all_work_items_done INTEGER NOT NULL DEFAULT 0
+      all_work_items_done INTEGER NOT NULL DEFAULT 0,
+      is_locked INTEGER NOT NULL DEFAULT 0,
+      password_hash TEXT,
+      password_salt TEXT
     );
 
     -- Work Items (global)
@@ -163,6 +166,18 @@ export function initializeSchema(db: Database.Database): void {
     -- Seed todo_content if empty
     INSERT OR IGNORE INTO todo_content (id, content) VALUES (1, '{}');
   `)
+
+  // Add new columns if they don't exist yet (safe to run on existing DBs)
+  const noteColumns = db.prepare("PRAGMA table_info(notes)").all() as { name: string }[]
+  if (!noteColumns.some((c) => c.name === 'is_locked')) {
+    db.exec('ALTER TABLE notes ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0')
+  }
+  if (!noteColumns.some((c) => c.name === 'password_hash')) {
+    db.exec('ALTER TABLE notes ADD COLUMN password_hash TEXT')
+  }
+  if (!noteColumns.some((c) => c.name === 'password_salt')) {
+    db.exec('ALTER TABLE notes ADD COLUMN password_salt TEXT')
+  }
 
   // Backfill FTS index for any notes not yet indexed
   db.prepare(`

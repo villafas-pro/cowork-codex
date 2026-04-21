@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '../db'
 import type { WorkItem } from '@shared/types'
+import type Database from 'better-sqlite3'
 
 export function registerWorkItemHandlers(): void {
   // Get all work items that are linked to at least one entity (enriched with cached ADO data)
@@ -167,7 +168,9 @@ export function registerWorkItemHandlers(): void {
   })
 }
 
-function updateNoteWorkItemStatus(db: any, workItemId: string): void {
+const ADO_DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
+
+function updateNoteWorkItemStatus(db: Database.Database, workItemId: string): void {
   // Get all notes linked to this work item
   const noteLinks = db
     .prepare("SELECT entity_id FROM work_item_links WHERE work_item_id = ? AND entity_type = 'note'")
@@ -177,13 +180,20 @@ function updateNoteWorkItemStatus(db: any, workItemId: string): void {
     const noteId = link.entity_id
     const items = db
       .prepare(`
-        SELECT wi.is_done FROM work_items wi
+        SELECT wi.is_done,
+               CASE WHEN wi.url LIKE '%dev.azure.com%' THEN 1 ELSE 0 END AS is_ado,
+               cwi.state AS cached_state
+        FROM work_items wi
         JOIN work_item_links wil ON wi.id = wil.work_item_id
+        LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
         WHERE wil.entity_type = 'note' AND wil.entity_id = ?
       `)
-      .all(noteId) as { is_done: number }[]
+      .all(noteId) as { is_done: number; is_ado: number; cached_state: string | null }[]
 
-    const allDone = items.length > 0 && items.every((i) => i.is_done === 1)
+    const allDone = items.length > 0 && items.every((i) => {
+      if (i.is_ado && i.cached_state) return ADO_DONE_STATES.has(i.cached_state)
+      return i.is_done === 1
+    })
     db.prepare('UPDATE notes SET all_work_items_done = ? WHERE id = ?').run(allDone ? 1 : 0, noteId)
   }
 }

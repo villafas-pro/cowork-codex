@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Settings as SettingsIcon, CheckCircle, XCircle, Loader } from 'lucide-react'
+import { useAppStore, type EditorFontSize } from '../store/appStore'
 
 type TestStatus = 'idle' | 'testing' | 'ok' | 'error'
 
@@ -11,6 +12,7 @@ export default function Settings(): React.JSX.Element {
   const [testStatus, setTestStatus] = useState<TestStatus>('idle')
   const [testMessage, setTestMessage] = useState('')
   const [saved, setSaved] = useState(false)
+  const { editorFontSize, setEditorFontSize, theme, toggleTheme } = useAppStore()
 
   useEffect(() => {
     loadConfig()
@@ -51,17 +53,74 @@ export default function Settings(): React.JSX.Element {
     }
   }
 
-  const inputClass = 'w-full bg-[#1a1a1a] border border-[#383838] rounded-lg px-3 py-2 text-sm text-[#e5e5e5] placeholder-[#444] outline-none focus:border-accent transition-colors'
-  const labelClass = 'block text-xs text-[#888] mb-1.5'
+  const inputClass = 'w-full bg-th-bg-3 border border-th-bd-2 rounded-lg px-3 py-2 text-sm text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent transition-colors'
+  const labelClass = 'block text-xs text-th-tx-4 mb-1.5'
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="flex items-center gap-2 px-6 py-4 border-b border-[#383838] flex-shrink-0">
-        <SettingsIcon size={14} className="text-[#888]" />
-        <h1 className="text-sm font-medium text-[#d0d0d0]">Settings</h1>
+      <div className="flex items-center gap-2 px-6 py-4 border-b border-th-bd-2 flex-shrink-0">
+        <SettingsIcon size={14} className="text-th-tx-4" />
+        <h1 className="text-sm font-medium text-th-tx-2">Settings</h1>
       </div>
 
       <div className="px-6 py-6 max-w-lg space-y-8">
+
+        {/* Appearance */}
+        <section>
+          <h2 className="text-xs font-semibold text-[#e8b800] uppercase tracking-wider mb-4">
+            Appearance
+          </h2>
+
+          <div className="space-y-5">
+            {/* Theme */}
+            <div>
+              <label className={labelClass}>Theme</label>
+              <div className="flex gap-2">
+                {(['dark', 'light'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => theme !== t && toggleTheme()}
+                    className={`px-4 py-2 rounded-lg text-sm transition-all capitalize ${
+                      theme === t
+                        ? 'bg-accent text-black font-semibold'
+                        : 'bg-th-bg-3 border border-th-bd-2 text-th-tx-4 hover:text-th-tx-2 hover:border-th-bd-3'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Editor font size */}
+            <div>
+              <label className={labelClass}>Editor font size</label>
+              <div className="flex gap-2">
+                {([
+                  { key: 'small', label: 'Small', hint: '13px' },
+                  { key: 'medium', label: 'Medium', hint: '15px' },
+                  { key: 'large', label: 'Large', hint: '17px' },
+                ] as { key: EditorFontSize; label: string; hint: string }[]).map(({ key, label, hint }) => (
+                  <button
+                    key={key}
+                    onClick={() => setEditorFontSize(key)}
+                    className={`flex flex-col items-center px-5 py-2.5 rounded-lg text-sm transition-all ${
+                      editorFontSize === key
+                        ? 'bg-accent text-black font-semibold'
+                        : 'bg-th-bg-3 border border-th-bd-2 text-th-tx-4 hover:text-th-tx-2 hover:border-th-bd-3'
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span className={`text-[10px] mt-0.5 ${editorFontSize === key ? 'text-black/60' : 'text-th-tx-6'}`}>{hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Divider */}
+        <div className="border-t border-th-bd-1" />
 
         {/* Azure DevOps */}
         <section>
@@ -102,8 +161,8 @@ export default function Settings(): React.JSX.Element {
                 placeholder={hasPat ? 'Enter new token to replace existing' : 'Paste your PAT here'}
                 className={inputClass}
               />
-              <p className="text-xs text-[#555] mt-1.5">
-                Only needs <span className="text-[#777]">Work Items — Read</span> scope.
+              <p className="text-xs text-th-tx-6 mt-1.5">
+                Only needs <span className="text-th-tx-4">Work Items — Read</span> scope.
                 Create at dev.azure.com → Profile → Personal access tokens.
               </p>
             </div>
@@ -120,7 +179,7 @@ export default function Settings(): React.JSX.Element {
               <button
                 onClick={testConnection}
                 disabled={testStatus === 'testing'}
-                className="px-4 py-2 rounded-lg border border-[#383838] text-sm text-[#aaa] hover:text-white hover:border-[#555] transition-all disabled:opacity-40"
+                className="px-4 py-2 rounded-lg border border-th-bd-2 text-sm text-th-tx-3 hover:text-th-tx-1 hover:border-th-bd-3 transition-all disabled:opacity-40"
               >
                 {testStatus === 'testing' ? 'Testing...' : 'Test connection'}
               </button>
@@ -138,19 +197,19 @@ export default function Settings(): React.JSX.Element {
                 </div>
               )}
               {testStatus === 'testing' && (
-                <Loader size={13} className="text-[#888] animate-spin" />
+                <Loader size={13} className="text-th-tx-4 animate-spin" />
               )}
             </div>
           </div>
         </section>
 
         {/* Divider */}
-        <div className="border-t border-[#2a2a2a]" />
+        <div className="border-t border-th-bd-1" />
 
         {/* About */}
         <section>
-          <h2 className="text-xs font-semibold text-[#666] uppercase tracking-wider mb-3">About</h2>
-          <p className="text-xs text-[#555]">Cowork Codex — personal dev notepad</p>
+          <h2 className="text-xs font-semibold text-th-tx-5 uppercase tracking-wider mb-3">About</h2>
+          <p className="text-xs text-th-tx-6">Cowork Codex — personal dev notepad</p>
         </section>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, Loader, User, Plus, ExternalLink, AlertCircle, Layers, X } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
+import { TYPE_COLORS, STATE_COLORS } from '../lib/workItemUtils'
 
 interface WorkItemResult {
   id: number
@@ -30,24 +31,6 @@ interface Props {
 
 const WORK_ITEM_TYPES = ['', 'Bug', 'Task', 'User Story', 'Feature', 'Epic', 'Test Case']
 const WORK_ITEM_STATES = ['', 'Active', 'New', 'Resolved', 'Closed', 'In Progress', 'Done']
-
-const TYPE_COLORS: Record<string, string> = {
-  'Bug': '#cc3333',
-  'Task': '#007acc',
-  'User Story': '#009933',
-  'Feature': '#773b93',
-  'Epic': '#ff6600',
-  'Test Case': '#004b50',
-}
-
-const STATE_COLORS: Record<string, string> = {
-  'Active': '#007acc',
-  'In Progress': '#007acc',
-  'New': '#888',
-  'Resolved': '#009933',
-  'Done': '#009933',
-  'Closed': '#555',
-}
 
 const PRIORITY_LABELS: Record<number, string> = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low' }
 const PRIORITY_COLORS: Record<number, string> = { 1: '#cc3333', 2: '#e8b800', 3: '#007acc', 4: '#666' }
@@ -177,36 +160,36 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
   // Find the hovered result
   const hoveredResult = results.find((r) => r.id === hoveredId)
 
-  const selectClass = 'bg-[#1a1a1a] border border-[#333] rounded px-1.5 py-1 text-xs text-[#ccc] outline-none focus:border-accent appearance-none cursor-pointer'
+  const selectClass = 'bg-th-bg-3 border border-th-bd-2 rounded px-1.5 py-1 text-xs text-th-tx-2 outline-none focus:border-accent appearance-none cursor-pointer'
 
   return (
     <>
       <div className="flex flex-col gap-2">
         {/* Search input */}
-        <div className="flex items-center gap-1 bg-[#1a1a1a] border border-[#383838] rounded-lg px-2 focus-within:border-accent transition-colors">
-          <Search size={11} className="text-[#555] flex-shrink-0" />
+        <div className="flex items-center gap-1 bg-th-bg-3 border border-th-bd-2 rounded-lg px-2 focus-within:border-accent transition-colors">
+          <Search size={11} className="text-th-tx-6 flex-shrink-0" />
           <input
             ref={searchRef}
             value={search}
             onChange={handleSearchChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder || "ID or title..."}
-            className="flex-1 bg-transparent text-xs text-[#e5e5e5] placeholder-[#444] outline-none focus:outline-none py-1.5"
+            className="flex-1 bg-transparent text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:outline-none py-1.5"
           />
           {loading ? (
-            <Loader size={11} className="text-[#555] animate-spin flex-shrink-0" />
+            <Loader size={11} className="text-th-tx-6 animate-spin flex-shrink-0" />
           ) : search ? (
             <button
               onClick={() => {
                 if (debounceTimer.current) clearTimeout(debounceTimer.current)
                 setSearch(''); setResults([]); setSearched(false); setError('')
               }}
-              className="text-[#555] hover:text-[#aaa] transition-colors flex-shrink-0"
+              className="text-th-tx-6 hover:text-th-tx-3 transition-colors flex-shrink-0"
             >
               <X size={11} />
             </button>
           ) : (
-            <button onClick={doSearch} className="text-[#555] hover:text-accent transition-colors flex-shrink-0">
+            <button onClick={doSearch} className="text-th-tx-6 hover:text-accent transition-colors flex-shrink-0">
               <Search size={11} />
             </button>
           )}
@@ -217,7 +200,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
           <button
             onClick={() => setAssignedToMe((v) => !v)}
             title="Assigned to me"
-            className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${assignedToMe ? 'border-accent text-accent bg-[#e8b80015]' : 'border-[#333] text-[#666] hover:text-[#aaa] hover:border-[#444]'}`}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${assignedToMe ? 'border-accent text-accent bg-[#e8b80015]' : 'border-th-bd-2 text-th-tx-5 hover:text-th-tx-3 hover:border-th-bd-3'}`}
           >
             <User size={10} />
             Me
@@ -243,7 +226,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
         {/* Results */}
         {error && <p className="text-xs text-red-400 px-1">{error}</p>}
         {!loading && searched && results.length === 0 && !error && (
-          <p className="text-xs text-[#555] text-center py-3">No results</p>
+          <p className="text-xs text-th-tx-6 text-center py-3">No results</p>
         )}
 
         {results.length > 0 && (
@@ -255,26 +238,26 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
                 onMouseEnter={(e) => handleRowEnter(item, e.currentTarget)}
                 onMouseLeave={handleRowLeave}
                 onClick={() => openTab({ entityType: 'work-item', entityId: String(item.id), title: `#${item.id}` })}
-                className="flex items-center gap-1.5 px-2 py-2 rounded-lg hover:bg-[#252525] transition-all group border border-transparent hover:border-[#333] cursor-pointer"
+                className="flex items-center gap-1.5 px-2 py-2 rounded-lg hover:bg-th-bg-5 transition-all group border border-transparent hover:border-th-bd-2 cursor-pointer"
               >
                 <span
                   className="w-2 h-2 rounded-sm flex-shrink-0 mt-0.5"
                   style={{ background: TYPE_COLORS[item.type] || '#555' }}
                 />
                 <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                  <span className="text-xs text-[#e5e5e5] truncate">{item.title}</span>
+                  <span className="text-xs text-th-tx-1 truncate">{item.title}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-[#666]">#{item.id}</span>
-                    <span className="text-[10px] text-[#555]">{item.state}</span>
+                    <span className="text-[10px] text-th-tx-5">#{item.id}</span>
+                    <span className="text-[10px] text-th-tx-6">{item.state}</span>
                     {item.assignedTo && (
-                      <span className="text-[10px] text-[#555] truncate">{item.assignedTo.split(' ')[0]}</span>
+                      <span className="text-[10px] text-th-tx-6 truncate">{item.assignedTo.split(' ')[0]}</span>
                     )}
                   </div>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); onAdd(item.url, String(item.id)) }}
                   title="Link to current item"
-                  className="flex-shrink-0 p-1 rounded text-[#444] hover:text-accent hover:bg-[#2a2a2a] transition-all opacity-0 group-hover:opacity-100"
+                  className="flex-shrink-0 p-1 rounded text-th-tx-6 hover:text-accent hover:bg-th-bg-6 transition-all opacity-0 group-hover:opacity-100"
                 >
                   <Plus size={13} />
                 </button>
@@ -297,7 +280,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
             width: POPUP_WIDTH,
             zIndex: 9999,
           }}
-          className="bg-[#242424] border border-[#484848] rounded-xl shadow-2xl overflow-hidden"
+          className="bg-th-bg-5 border border-th-bd-3 rounded-xl shadow-2xl overflow-hidden"
         >
           {/* Type + state header */}
           <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
@@ -320,11 +303,11 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
             >
               {hoveredResult.state}
             </span>
-            <span className="text-[10px] text-[#666] ml-auto">#{hoveredResult.id}</span>
+            <span className="text-[10px] text-th-tx-5 ml-auto">#{hoveredResult.id}</span>
           </div>
 
           {/* Title */}
-          <p className="px-3 pb-3 text-[13px] font-semibold text-white leading-snug">
+          <p className="px-3 pb-3 text-[13px] font-semibold text-th-tx-1 leading-snug">
             {hoveredResult.title}
           </p>
 
@@ -336,11 +319,11 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
               transition: 'max-height 1.1s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div className="border-t border-[#363636]">
+            <div className="border-t border-th-bd-2">
               {detailsLoading && !details && (
                 <div className="flex items-center gap-1.5 px-3 py-3">
-                  <Loader size={10} className="text-[#888] animate-spin" />
-                  <span className="text-[11px] text-[#888]">Loading details…</span>
+                  <Loader size={10} className="text-th-tx-4 animate-spin" />
+                  <span className="text-[11px] text-th-tx-4">Loading details…</span>
                 </div>
               )}
 
@@ -355,8 +338,8 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
                   {/* Assigned to */}
                   {(details.assigned_to || hoveredResult.assignedTo) && (
                     <div className="flex items-center gap-2">
-                      <User size={11} className="text-[#777] flex-shrink-0" />
-                      <span className="text-[11px] text-[#c0c0c0]">
+                      <User size={11} className="text-th-tx-4 flex-shrink-0" />
+                      <span className="text-[11px] text-th-tx-2">
                         {details.assigned_to || hoveredResult.assignedTo}
                       </span>
                     </div>
@@ -375,8 +358,8 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
                       )}
                       {details.story_points != null && (
                         <div className="flex items-center gap-1.5">
-                          <Layers size={11} className="text-[#777]" />
-                          <span className="text-[11px] text-[#c0c0c0]">{details.story_points} pts</span>
+                          <Layers size={11} className="text-th-tx-4" />
+                          <span className="text-[11px] text-th-tx-2">{details.story_points} pts</span>
                         </div>
                       )}
                     </div>
@@ -384,14 +367,14 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
 
                   {/* Iteration */}
                   {details.iteration_path && (
-                    <p className="text-[11px] text-[#999] truncate">
+                    <p className="text-[11px] text-th-tx-3 truncate">
                       📅 {details.iteration_path.split('\\').pop()}
                     </p>
                   )}
 
                   {/* Description snippet */}
                   {details.description && (
-                    <p className="text-[11px] text-[#b0b0b0] leading-relaxed line-clamp-3 border-t border-[#363636] pt-3">
+                    <p className="text-[11px] text-th-tx-2 leading-relaxed line-clamp-3 border-t border-th-bd-2 pt-3">
                       {stripHtml(details.description).slice(0, 220)}
                       {stripHtml(details.description).length > 220 ? '…' : ''}
                     </p>
@@ -402,17 +385,17 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
           </div>
 
           {/* Footer actions */}
-          <div className="flex items-center border-t border-[#363636] bg-[#1c1c1c]">
+          <div className="flex items-center border-t border-th-bd-2 bg-th-bg-3">
             <button
               onClick={() => openTab({ entityType: 'work-item', entityId: String(hoveredResult.id), title: `#${hoveredResult.id}` })}
-              className="flex-1 text-center text-[11px] font-medium text-[#c0c0c0] hover:text-white hover:bg-[#2a2a2a] transition-all py-2"
+              className="flex-1 text-center text-[11px] font-medium text-th-tx-2 hover:text-th-tx-1 hover:bg-th-bg-6 transition-all py-2"
             >
               Open in app
             </button>
             <div className="w-px h-5 bg-[#363636]" />
             <button
               onClick={() => window.api?.shell.openExternal(hoveredResult.url)}
-              className="flex items-center gap-1.5 text-[11px] font-medium text-[#c0c0c0] hover:text-white hover:bg-[#2a2a2a] transition-all py-2 px-3"
+              className="flex items-center gap-1.5 text-[11px] font-medium text-th-tx-2 hover:text-th-tx-1 hover:bg-th-bg-6 transition-all py-2 px-3"
             >
               <ExternalLink size={11} />
               Open in ADO

@@ -15,6 +15,16 @@ import CodeEditor from './components/editors/CodeEditor'
 import FlowEditor from './components/editors/FlowEditor'
 import WorkItemViewer from './components/editors/WorkItemViewer'
 
+/** Raw SQLite row returned by tabs:getAll */
+interface RawTabRow {
+  id: string
+  entity_type: string
+  entity_id: string
+  tab_order: number
+  is_active: number
+  title: string
+}
+
 // Type augmentation for window.api
 declare global {
   interface Window {
@@ -26,6 +36,10 @@ declare global {
         update: (id: string, data: object) => Promise<any>
         delete: (id: string) => Promise<any>
         togglePin: (id: string) => Promise<any>
+        toggleLock: (id: string) => Promise<any>
+        unlock: (id: string, password: string) => Promise<any>
+        setPassword: (id: string, password: string) => Promise<any>
+        removePassword: (id: string, password: string) => Promise<any>
         getVersions: (noteId: string) => Promise<any[]>
         search: (query: string) => Promise<any[]>
         getImages: () => Promise<any[]>
@@ -104,7 +118,7 @@ declare global {
 }
 
 export default function App(): React.JSX.Element {
-  const { activeSection, searchOpen, setSearchOpen, setTheme, viewMode, tabs, activeTabId, restoreTabs, setAdoStatus } = useAppStore()
+  const { activeSection, searchOpen, setSearchOpen, setTheme, setEditorFontSize, viewMode, tabs, activeTabId, restoreTabs, setAdoStatus } = useAppStore()
 
   // Check ADO connection status
   async function checkAdoConnection(): Promise<void> {
@@ -125,19 +139,22 @@ export default function App(): React.JSX.Element {
       const theme = (await window.api?.settings.get('theme')) as 'dark' | 'light' | undefined
       if (theme) setTheme(theme)
 
+      const fontSize = (await window.api?.settings.get('editorFontSize')) as import('./store/appStore').EditorFontSize | undefined
+      if (fontSize) setEditorFontSize(fontSize)
+
       // Check ADO connection and background sync
       checkAdoConnection()
       window.api?.ado.syncLinkedWorkItems().catch(() => {})
 
       const savedTabs = (await window.api?.tabs.getAll()) || []
       if (savedTabs.length > 0) {
-        const restoredTabs = savedTabs.map((t: any) => ({
+        const restoredTabs = (savedTabs as RawTabRow[]).map((t) => ({
           id: t.id,
           entityType: t.entity_type as import('./store/appStore').EntityType,
-          entityId: t.entity_id as string,
-          title: (t.title as string) || 'Untitled'
+          entityId: t.entity_id,
+          title: t.title || 'Untitled'
         }))
-        const activeRow = savedTabs.find((t: any) => t.is_active === 1)
+        const activeRow = (savedTabs as RawTabRow[]).find((t) => t.is_active === 1)
         restoreTabs(restoredTabs, activeRow?.id ?? restoredTabs[restoredTabs.length - 1].id)
       }
     }
@@ -215,7 +232,7 @@ export default function App(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0d0d0d] text-[#f5f5f5] overflow-hidden">
+    <div className="flex flex-col h-screen bg-th-bg-0 text-th-tx-1 overflow-hidden">
       {/* Title bar with tabs */}
       <TitleBar />
 
@@ -224,7 +241,7 @@ export default function App(): React.JSX.Element {
         <Sidebar />
 
         {/* Main content */}
-        <main className="flex-1 overflow-hidden bg-[#181818]">
+        <main className="flex-1 overflow-hidden bg-th-bg-2">
           {renderContent()}
         </main>
       </div>

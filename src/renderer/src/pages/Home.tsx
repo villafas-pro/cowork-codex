@@ -7,13 +7,15 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { useAppStore } from '../store/appStore'
+import { TYPE_COLORS, STATE_COLORS, DONE_STATES } from '../lib/workItemUtils'
 
 interface NoteItem {
   id: string
   title: string
   updated_at: number
   is_pinned: number
-  all_work_items_done: number
+  linked_work_item_count: number
+  active_work_item_count: number
 }
 
 interface WorkItemSummary {
@@ -24,18 +26,6 @@ interface WorkItemSummary {
   cached_assigned_to: string | null
   is_ado: number
 }
-
-const TYPE_COLORS: Record<string, string> = {
-  'Bug': '#cc3333', 'Task': '#007acc', 'User Story': '#009933',
-  'Feature': '#773b93', 'Epic': '#ff6600', 'Test Case': '#004b50',
-}
-
-const STATE_COLORS: Record<string, string> = {
-  'Active': '#007acc', 'In Progress': '#007acc', 'New': '#888',
-  'Resolved': '#009933', 'Done': '#009933', 'Closed': '#555', 'Removed': '#555',
-}
-
-const DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
 
 export default function Home(): React.JSX.Element {
   const { openTab, setSearchOpen } = useAppStore()
@@ -110,7 +100,7 @@ export default function Home(): React.JSX.Element {
   async function loadNotes(): Promise<void> {
     const all: NoteItem[] = (await window.api?.notes.getAll()) || []
     const recent = [...all].sort((a, b) => b.updated_at - a.updated_at).slice(0, 8)
-    const active = all.filter((n) => !n.all_work_items_done && n.is_pinned === 0).slice(0, 8)
+    const active = all.filter((n) => n.active_work_item_count > 0 && n.is_pinned === 0).slice(0, 8)
     setRecentNotes(recent)
     setActiveNotes(active)
   }
@@ -128,12 +118,12 @@ export default function Home(): React.JSX.Element {
   const NoteCard = ({ note }: { note: NoteItem }): React.JSX.Element => (
     <button
       onClick={() => openTab({ entityType: 'note', entityId: note.id, title: note.title })}
-      className="flex items-center gap-3 p-3 rounded-lg bg-[#202020] hover:bg-[#282828] border border-[#383838] hover:border-[#484848] transition-all text-left w-full group"
+      className="flex items-center gap-3 p-3 rounded-lg bg-th-bg-4 hover:bg-th-bg-6 border border-th-bd-2 hover:border-th-bd-3 transition-all text-left w-full group"
     >
-      <FileText size={14} className="text-[#888] flex-shrink-0" />
+      <FileText size={14} className="text-th-tx-4 flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#f0f0f0] truncate">{note.title || 'Untitled'}</p>
-        <p className="text-xs text-[#888] mt-0.5">{formatDate(note.updated_at)}</p>
+        <p className="text-sm text-th-tx-1 truncate">{note.title || 'Untitled'}</p>
+        <p className="text-xs text-th-tx-4 mt-0.5">{formatDate(note.updated_at)}</p>
       </div>
       {note.is_pinned === 1 && <Pin size={11} className="text-accent flex-shrink-0" />}
     </button>
@@ -145,11 +135,11 @@ export default function Home(): React.JSX.Element {
       <div className="px-8 pt-8 pb-4 flex-shrink-0">
         <button
           onClick={() => setSearchOpen(true)}
-          className="w-full flex items-center gap-3 px-4 py-3 bg-[#202020] border border-[#383838] rounded-xl text-[#888] hover:border-[#505050] hover:text-[#bbb] transition-all text-left"
+          className="w-full flex items-center gap-3 px-4 py-3 bg-th-bg-4 border border-th-bd-2 rounded-xl text-th-tx-4 hover:border-th-bd-3 hover:text-th-tx-2 transition-all text-left"
         >
           <Search size={15} />
           <span className="text-sm">Search everything...</span>
-          <span className="ml-auto text-xs text-[#666]">Ctrl+T</span>
+          <span className="ml-auto text-xs text-th-tx-5">Ctrl+T</span>
         </button>
       </div>
 
@@ -158,12 +148,12 @@ export default function Home(): React.JSX.Element {
           {/* Recently opened */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Clock size={13} className="text-[#888]" />
-              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">Recently Opened</h2>
+              <Clock size={13} className="text-th-tx-4" />
+              <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider">Recently Opened</h2>
             </div>
             <div className="flex flex-col gap-1.5">
               {recentNotes.length === 0 ? (
-                <p className="text-xs text-[#666] py-2">No notes yet</p>
+                <p className="text-xs text-th-tx-5 py-2">No notes yet</p>
               ) : (
                 recentNotes.map((note) => <NoteCard key={note.id} note={note} />)
               )}
@@ -173,12 +163,12 @@ export default function Home(): React.JSX.Element {
           {/* Still active */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <AlertCircle size={13} className="text-[#888]" />
-              <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">Still Active</h2>
+              <AlertCircle size={13} className="text-th-tx-4" />
+              <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider">Still Active</h2>
             </div>
             <div className="flex flex-col gap-1.5">
               {activeNotes.length === 0 ? (
-                <p className="text-xs text-[#666] py-2">All caught up</p>
+                <p className="text-xs text-th-tx-5 py-2">All caught up</p>
               ) : (
                 activeNotes.map((note) => <NoteCard key={note.id} note={note} />)
               )}
@@ -189,8 +179,8 @@ export default function Home(): React.JSX.Element {
           {openWorkItems.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <CheckSquare size={13} className="text-[#888]" />
-                <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider">Open Work Items</h2>
+                <CheckSquare size={13} className="text-th-tx-4" />
+                <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider">Open Work Items</h2>
               </div>
               <div className="flex flex-col gap-1.5">
                 {openWorkItems.map((wi) => {
@@ -200,11 +190,11 @@ export default function Home(): React.JSX.Element {
                     <button
                       key={wi.item_number}
                       onClick={() => openTab({ entityType: 'work-item', entityId: wi.item_number, title: wi.cached_title || `#${wi.item_number}` })}
-                      className="flex items-start gap-2.5 p-3 rounded-lg bg-[#202020] hover:bg-[#282828] border border-[#383838] hover:border-[#484848] transition-all text-left w-full"
+                      className="flex items-start gap-2.5 p-3 rounded-lg bg-th-bg-4 hover:bg-th-bg-6 border border-th-bd-2 hover:border-th-bd-3 transition-all text-left w-full"
                     >
-                      <CheckSquare size={13} className="text-[#555] flex-shrink-0 mt-0.5" />
+                      <CheckSquare size={13} className="text-th-tx-6 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-[#f0f0f0] truncate">{wi.cached_title || `#${wi.item_number}`}</p>
+                        <p className="text-sm text-th-tx-1 truncate">{wi.cached_title || `#${wi.item_number}`}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {wi.cached_type && (
                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
@@ -218,7 +208,7 @@ export default function Home(): React.JSX.Element {
                             </span>
                           )}
                           {wi.cached_assigned_to && (
-                            <span className="text-[10px] text-[#555] truncate">{wi.cached_assigned_to}</span>
+                            <span className="text-[10px] text-th-tx-6 truncate">{wi.cached_assigned_to}</span>
                           )}
                         </div>
                       </div>
@@ -232,10 +222,10 @@ export default function Home(): React.JSX.Element {
 
         {/* Quick Scratch Pad */}
         <div className="mt-8 max-w-4xl">
-          <h2 className="text-xs font-medium text-[#888] uppercase tracking-wider mb-3">
+          <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider mb-3">
             Quick Scratch Pad
           </h2>
-          <div className="bg-[#202020] border border-[#383838] rounded-xl overflow-hidden">
+          <div className="bg-th-bg-4 border border-th-bd-2 rounded-xl overflow-hidden">
             {/* Compact toolbar */}
             <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#2e2e2e]">
               {(
@@ -247,11 +237,11 @@ export default function Home(): React.JSX.Element {
                 ] as const
               ).map((b, i) => (
                 <button key={i} onClick={b.cmd} title={b.title}
-                  className={`p-1 rounded transition-all ${b.active ? 'bg-[#383838] text-white' : 'text-[#666] hover:text-[#ccc] hover:bg-[#2a2a2a]'}`}>
+                  className={`p-1 rounded transition-all ${b.active ? 'bg-th-bd-2 text-th-tx-1' : 'text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-6'}`}>
                   {b.icon}
                 </button>
               ))}
-              <div className="w-px h-3 bg-[#383838] mx-0.5" />
+              <div className="w-px h-3 bg-th-bd-2 mx-0.5" />
               {(
                 [
                   { icon: <List size={12} />, cmd: () => scratchEditor?.chain().focus().toggleBulletList().run(), active: !!scratchEditor?.isActive('bulletList'), title: 'Bullet list' },
@@ -260,13 +250,13 @@ export default function Home(): React.JSX.Element {
                 ] as const
               ).map((b, i) => (
                 <button key={i} onClick={b.cmd} title={b.title}
-                  className={`p-1 rounded transition-all ${b.active ? 'bg-[#383838] text-white' : 'text-[#666] hover:text-[#ccc] hover:bg-[#2a2a2a]'}`}>
+                  className={`p-1 rounded transition-all ${b.active ? 'bg-th-bd-2 text-th-tx-1' : 'text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-6'}`}>
                   {b.icon}
                 </button>
               ))}
-              <div className="w-px h-3 bg-[#383838] mx-0.5" />
+              <div className="w-px h-3 bg-th-bd-2 mx-0.5" />
               <button onClick={() => scratchEditor?.chain().focus().toggleBlockquote().run()} title="Blockquote"
-                className={`p-1 rounded transition-all ${scratchEditor?.isActive('blockquote') ? 'bg-[#383838] text-white' : 'text-[#666] hover:text-[#ccc] hover:bg-[#2a2a2a]'}`}>
+                className={`p-1 rounded transition-all ${scratchEditor?.isActive('blockquote') ? 'bg-th-bd-2 text-th-tx-1' : 'text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-6'}`}>
                 <Quote size={12} />
               </button>
             </div>
@@ -277,7 +267,7 @@ export default function Home(): React.JSX.Element {
             >
               <EditorContent
                 editor={scratchEditor}
-                className="tiptap text-[14px] text-[#d8d8d8] leading-relaxed"
+                className="tiptap text-[14px] text-th-tx-2 leading-relaxed"
               />
             </div>
           </div>

@@ -3,29 +3,13 @@ import Editor from '@monaco-editor/react'
 import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, CheckSquare, Square, ExternalLink, X, AlertTriangle } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
+import { type WorkItem, TYPE_COLORS, DONE_STATES } from '../../lib/workItemUtils'
 
 const LANGUAGES = [
   'plaintext', 'javascript', 'typescript', 'python', 'csharp', 'sql',
   'html', 'css', 'json', 'markdown', 'bash', 'yaml', 'go', 'rust',
   'java', 'php', 'ruby', 'cpp', 'xml', 'powershell'
 ]
-
-interface WorkItem {
-  id: string
-  url: string
-  item_number: string
-  is_done: number
-  is_ado: number
-  cached_title: string | null
-  cached_type: string | null
-  cached_state: string | null
-  cached_assigned_to: string | null
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  'Bug': '#cc3333', 'Task': '#007acc', 'User Story': '#009933',
-  'Feature': '#773b93', 'Epic': '#ff6600', 'Test Case': '#004b50',
-}
 
 export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.Element {
   const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus } = useAppStore()
@@ -137,7 +121,6 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     setWorkItems((prev) => prev.filter((i) => i.id !== workItemId))
   }
 
-  const DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
   const effectiveDone = (i: WorkItem): boolean =>
     i.is_ado && i.cached_state ? DONE_STATES.has(i.cached_state) : !!i.is_done
   const allDone = workItems.length > 0 && workItems.every(effectiveDone)
@@ -147,33 +130,33 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
       {/* Main editor area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#303030] bg-[#141414] flex-shrink-0">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-th-bd-1 bg-th-bg-1 flex-shrink-0">
           {/* Title */}
           <input
             value={title}
             onChange={handleTitleChange}
             placeholder="Untitled"
-            className="flex-1 bg-transparent text-sm font-medium text-white placeholder-[#444] outline-none caret-accent min-w-0"
+            className="flex-1 bg-transparent text-sm text-th-tx-1 placeholder-th-tx-5 outline-none caret-accent min-w-0"
           />
 
           {/* Language picker */}
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowLangPicker((v) => !v)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#252525] border border-[#383838] text-xs text-[#ccc] hover:text-white hover:border-[#505050] transition-all"
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-th-bg-5 border border-th-bd-2 text-xs text-th-tx-2 hover:text-th-tx-1 hover:border-th-bd-3 transition-all"
             >
               {language}
               <ChevronDown size={11} />
             </button>
             {showLangPicker && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-[#222] border border-[#404040] rounded-lg shadow-xl z-20 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 w-40 bg-th-bg-4 border border-th-bd-3 rounded-lg shadow-xl z-20 overflow-hidden">
                 <div className="max-h-56 overflow-y-auto py-1">
                   {LANGUAGES.map((lang) => (
                     <button
                       key={lang}
                       onClick={() => handleLanguageChange(lang)}
                       className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-                        lang === language ? 'text-accent bg-[#2a2a2a]' : 'text-[#ccc] hover:bg-[#2a2a2a] hover:text-white'
+                        lang === language ? 'text-accent bg-th-bg-6' : 'text-th-tx-2 hover:bg-th-bg-6 hover:text-th-tx-1'
                       }`}
                     >
                       {lang}
@@ -186,14 +169,14 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
 
           <button
             onClick={togglePin}
-            className={`p-1.5 rounded transition-all flex-shrink-0 ${isPinned ? 'text-accent' : 'text-[#666] hover:text-[#ddd]'}`}
+            className={`p-1.5 rounded transition-all flex-shrink-0 ${isPinned ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`}
             title={isPinned ? 'Unpin' : 'Pin'}
           >
             <Pin size={13} />
           </button>
           <button
             onClick={deleteBlock}
-            className="p-1.5 rounded transition-all text-[#666] hover:text-red-400 hover:bg-[#2a1a1a] flex-shrink-0"
+            className="p-1.5 rounded transition-all text-th-tx-5 hover:text-red-400 hover:bg-th-danger flex-shrink-0"
             title="Delete block"
           >
             <Trash2 size={13} />
@@ -229,21 +212,21 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
       </div>
 
       {/* Work items panel */}
-      <div className={`w-60 flex-shrink-0 border-l border-[#303030] bg-[#111111] flex flex-col transition-opacity ${allDone ? 'opacity-50' : ''}`}>
-        <div className="flex items-center justify-between px-3 py-3 border-b border-[#282828]">
+      <div className={`w-60 flex-shrink-0 border-l border-th-bd-1 bg-th-bg-1 flex flex-col transition-opacity ${allDone ? 'opacity-50' : ''}`}>
+        <div className="flex items-center justify-between px-3 py-3 border-b border-th-bd-1">
           <div className="flex items-center gap-1.5">
-            <Link2 size={12} className="text-[#666]" />
-            <span className="text-xs text-[#888] font-medium uppercase tracking-wide">Work Items</span>
+            <Link2 size={12} className="text-th-tx-5" />
+            <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide">Work Items</span>
             {allDone && <span className="text-xs text-accent ml-1">✓ Done</span>}
           </div>
           <div className="flex items-center gap-0.5">
-            <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all">
+            <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
               <Clipboard size={12} />
             </button>
             {!adoConfigured && (
               <button
                 onClick={() => setShowAddItem(!showAddItem)}
-                className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all"
+                className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all"
               >
                 <Plus size={12} />
               </button>
@@ -252,7 +235,7 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
         </div>
 
         {adoConfigured && (
-          <div className="px-3 py-2 border-b border-[#282828]">
+          <div className="px-3 py-2 border-b border-th-bd-1">
             <WorkItemSearch
               onAdd={(url) => { addWorkItem(url) }}
             />
@@ -260,30 +243,30 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
         )}
 
         {showAddItem && !adoConfigured && (
-          <div className="px-3 py-2 border-b border-[#282828]">
+          <div className="px-3 py-2 border-b border-th-bd-1">
             <input
               value={newItemUrl}
               onChange={(e) => setNewItemUrl(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addWorkItem()}
               placeholder="Paste Azure DevOps URL..."
               autoFocus
-              className="w-full bg-[#1a1a1a] border border-[#383838] rounded px-2 py-1.5 text-xs text-[#e5e5e5] placeholder-[#444] outline-none focus:border-accent"
+              className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1.5 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
             />
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto py-1">
           {workItems.length === 0 ? (
-            <p className="text-xs text-[#333] text-center py-6">No linked work items</p>
+            <p className="text-xs text-th-tx-6 text-center py-6">No linked work items</p>
           ) : (
             workItems.map((item) => (
-              <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-[#1a1a1a] transition-all">
+              <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-th-bg-3 transition-all">
                 {item.is_ado ? (
-                  <span className="flex-shrink-0 text-[#555] mt-0.5 cursor-default" title="State managed by ADO">
+                  <span className="flex-shrink-0 text-th-tx-6 mt-0.5 cursor-default" title="State managed by ADO">
                     {effectiveDone(item) ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
                   </span>
                 ) : (
-                  <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5">
+                  <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-th-tx-6 hover:text-accent transition-colors mt-0.5">
                     {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
                   </button>
                 )}
@@ -293,17 +276,17 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
                 >
                   {item.cached_title ? (
                     <>
-                      <p className="text-xs text-[#ddd] truncate leading-snug">{item.cached_title}</p>
+                      <p className="text-xs text-th-tx-2 truncate leading-snug">{item.cached_title}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {item.cached_type && (
                           <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: TYPE_COLORS[item.cached_type] || '#666' }} />
                         )}
-                        <span className="text-[10px] text-[#555]">#{item.item_number}</span>
-                        {item.cached_state && <span className="text-[10px] text-[#555]">· {item.cached_state}</span>}
+                        <span className="text-[10px] text-th-tx-6">#{item.item_number}</span>
+                        {item.cached_state && <span className="text-[10px] text-th-tx-6">· {item.cached_state}</span>}
                       </div>
                     </>
                   ) : (
-                    <p className={`text-xs truncate ${item.is_done ? 'line-through text-[#444]' : 'text-[#bbb]'}`}>#{item.item_number}</p>
+                    <p className={`text-xs truncate ${item.is_done ? 'line-through text-th-tx-6' : 'text-th-tx-2'}`}>#{item.item_number}</p>
                   )}
                 </button>
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
@@ -312,10 +295,10 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
                       <AlertTriangle size={11} />
                     </span>
                   )}
-                  <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-[#333] group-hover:text-[#666] transition-colors p-0.5">
+                  <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-th-tx-6 group-hover:text-th-tx-5 transition-colors p-0.5">
                     <ExternalLink size={11} />
                   </button>
-                  <button onClick={() => removeWorkItem(item.id)} className="text-[#333] group-hover:text-[#666] hover:!text-red-400 transition-colors p-0.5">
+                  <button onClick={() => removeWorkItem(item.id)} className="text-th-tx-6 group-hover:text-th-tx-5 hover:!text-red-400 transition-colors p-0.5">
                     <X size={11} />
                   </button>
                 </div>

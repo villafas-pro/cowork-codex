@@ -17,11 +17,18 @@ export interface NavEntry {
   entityId?: string
 }
 
+export type EditorFontSize = 'small' | 'medium' | 'large'
+const FONT_SIZE_MAP: Record<EditorFontSize, string> = { small: '13px', medium: '15px', large: '17px' }
+
 interface AppStore {
   // Theme
   theme: 'dark' | 'light'
   setTheme: (theme: 'dark' | 'light') => void
   toggleTheme: () => void
+
+  // Editor font size
+  editorFontSize: EditorFontSize
+  setEditorFontSize: (size: EditorFontSize) => void
 
   // Active section (sidebar)
   activeSection: Section
@@ -55,6 +62,10 @@ interface AppStore {
   adoStatus: 'ok' | 'error' | 'unconfigured' | 'checking'
   setAdoStatus: (status: 'ok' | 'error' | 'unconfigured' | 'checking') => void
 }
+
+// Apply default dark class immediately so there's no flash-of-light on startup
+// (loadSettings in App.tsx will override this once the persisted preference loads)
+document.documentElement.classList.add('dark')
 
 export const useAppStore = create<AppStore>((set, get) => ({
   theme: 'dark',
@@ -162,6 +173,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       )
       if (tab) set({ activeTabId: tab.id })
     }
+  },
+
+  editorFontSize: 'medium',
+  setEditorFontSize: (size) => {
+    set({ editorFontSize: size })
+    document.documentElement.style.setProperty('--editor-font-size', FONT_SIZE_MAP[size])
+    window.api?.settings.set('editorFontSize', size)
   },
 
   searchOpen: false,

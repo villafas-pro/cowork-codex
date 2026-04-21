@@ -74,12 +74,12 @@ export default function Images(): React.JSX.Element {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#383838] flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-th-bd-2 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <ImageIcon size={14} className="text-[#888]" />
-          <h1 className="text-sm font-medium text-[#d0d0d0]">Images</h1>
+          <ImageIcon size={14} className="text-th-tx-4" />
+          <h1 className="text-sm font-medium text-th-tx-2">Images</h1>
           {!loading && (
-            <span className="text-xs text-[#555]">{images.length} image{images.length !== 1 ? 's' : ''}</span>
+            <span className="text-xs text-th-tx-6">{images.length} image{images.length !== 1 ? 's' : ''}</span>
           )}
         </div>
       </div>
@@ -87,13 +87,13 @@ export default function Images(): React.JSX.Element {
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {loading && (
-          <p className="text-xs text-[#555] text-center py-12">Loading...</p>
+          <p className="text-xs text-th-tx-6 text-center py-12">Loading...</p>
         )}
         {!loading && images.length === 0 && (
           <div className="text-center py-16">
-            <ImageIcon size={32} className="text-[#333] mx-auto mb-3" />
-            <p className="text-sm text-[#555]">No images yet</p>
-            <p className="text-xs text-[#444] mt-1">Paste or drag images into any note</p>
+            <ImageIcon size={32} className="text-th-tx-6 mx-auto mb-3" />
+            <p className="text-sm text-th-tx-6">No images yet</p>
+            <p className="text-xs text-th-tx-6 mt-1">Paste or drag images into any note</p>
           </div>
         )}
 
@@ -104,11 +104,11 @@ export default function Images(): React.JSX.Element {
               onClick={() => openTab({ entityType: 'note', entityId: noteId, title: group.title })}
               className="flex items-center gap-2 mb-3 text-left group"
             >
-              <FileText size={12} className="text-[#666]" />
-              <span className="text-xs text-[#888] group-hover:text-accent transition-colors">
+              <FileText size={12} className="text-th-tx-5" />
+              <span className="text-xs text-th-tx-4 group-hover:text-accent transition-colors">
                 {group.title}
               </span>
-              <span className="text-xs text-[#555]">· {group.items.length} image{group.items.length !== 1 ? 's' : ''}</span>
+              <span className="text-xs text-th-tx-6">· {group.items.length} image{group.items.length !== 1 ? 's' : ''}</span>
             </button>
 
             {/* Image grid */}
@@ -117,7 +117,7 @@ export default function Images(): React.JSX.Element {
                 <button
                   key={`${img.noteId}-${img.index}`}
                   onClick={() => openLightbox(img.globalIdx)}
-                  className="relative aspect-square rounded-lg overflow-hidden border border-[#2e2e2e] hover:border-[#e8b800] transition-all group bg-[#1a1a1a]"
+                  className="relative aspect-square rounded-lg overflow-hidden border border-[#2e2e2e] hover:border-[#e8b800] transition-all group bg-th-bg-3"
                 >
                   <img
                     src={img.src}
@@ -141,7 +141,7 @@ export default function Images(): React.JSX.Element {
           {/* Close */}
           <button
             onClick={closeLightbox}
-            className="absolute top-4 right-4 p-2 rounded-lg text-[#888] hover:text-white hover:bg-[#222] transition-all"
+            className="absolute top-4 right-4 p-2 rounded-lg text-th-tx-4 hover:text-th-tx-1 hover:bg-th-bg-4 transition-all"
           >
             <X size={18} />
           </button>
@@ -153,7 +153,7 @@ export default function Images(): React.JSX.Element {
               openTab({ entityType: 'note', entityId: currentImg.noteId, title: currentImg.noteTitle })
               closeLightbox()
             }}
-            className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222] text-xs text-[#aaa] hover:text-accent transition-colors"
+            className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-th-bg-4 text-xs text-th-tx-3 hover:text-accent transition-colors"
           >
             <FileText size={11} />
             {currentImg.noteTitle}
@@ -163,7 +163,7 @@ export default function Images(): React.JSX.Element {
           {images.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); prevImage() }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-lg text-[#888] hover:text-white hover:bg-[#222] transition-all"
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-lg text-th-tx-4 hover:text-th-tx-1 hover:bg-th-bg-4 transition-all"
             >
               <ChevronLeft size={24} />
             </button>
@@ -181,14 +181,14 @@ export default function Images(): React.JSX.Element {
           {images.length > 1 && (
             <button
               onClick={(e) => { e.stopPropagation(); nextImage() }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-lg text-[#888] hover:text-white hover:bg-[#222] transition-all"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-lg text-th-tx-4 hover:text-th-tx-1 hover:bg-th-bg-4 transition-all"
             >
               <ChevronRight size={24} />
             </button>
           )}
 
           {/* Counter */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-[#666]">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-th-tx-5">
             {lightbox + 1} / {images.length}
           </div>
         </div>

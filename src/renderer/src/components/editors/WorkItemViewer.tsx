@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import type { EntityType } from '../../store/appStore'
+import { TYPE_COLORS, STATE_COLORS } from '../../lib/workItemUtils'
 
 interface CachedWorkItem {
   id: string
@@ -27,25 +28,6 @@ interface CachedWorkItem {
   created_at_ado: string
   changed_at_ado: string
   last_synced_at: number
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  'Bug': '#cc3333',
-  'Task': '#007acc',
-  'User Story': '#009933',
-  'Feature': '#773b93',
-  'Epic': '#ff6600',
-  'Test Case': '#004b50',
-}
-
-const STATE_COLORS: Record<string, string> = {
-  'Active': '#007acc',
-  'In Progress': '#007acc',
-  'New': '#888888',
-  'Resolved': '#009933',
-  'Done': '#009933',
-  'Closed': '#555555',
-  'Removed': '#555555',
 }
 
 const PRIORITY_LABELS: Record<number, string> = {
@@ -83,9 +65,9 @@ function HtmlBlock({ html, label }: { html: string; label: string }): React.JSX.
   if (!html || html.trim() === '') return null
   return (
     <section>
-      <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-2">{label}</h3>
+      <h3 className="text-xs font-semibold text-th-tx-4 uppercase tracking-wider mb-2">{label}</h3>
       <div
-        className="ado-html text-[14px] text-[#d0d0d0] leading-relaxed"
+        className="ado-html text-[14px] text-th-tx-2 leading-relaxed"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </section>
@@ -149,7 +131,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
     const title = item?.title || `#${adoId}`
     setCreating(entityType)
     try {
-      let entity: any
+      let entity: { id: string } | null | undefined
       if (entityType === 'note') entity = await window.api?.notes.create({ title })
       else if (entityType === 'code') entity = await window.api?.code.create({ title })
       else entity = await window.api?.flows.create({ title })
@@ -180,7 +162,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader size={18} className="text-[#555] animate-spin" />
+        <Loader size={18} className="text-th-tx-6 animate-spin" />
       </div>
     )
   }
@@ -188,11 +170,11 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
   if (error || !item) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
-        <AlertCircle size={24} className="text-[#555]" />
-        <p className="text-sm text-[#666]">{error || 'Work item unavailable'}</p>
+        <AlertCircle size={24} className="text-th-tx-6" />
+        <p className="text-sm text-th-tx-5">{error || 'Work item unavailable'}</p>
         <button
           onClick={handleRefresh}
-          className="px-3 py-1.5 rounded-lg border border-[#383838] text-xs text-[#aaa] hover:text-white hover:border-[#555] transition-all"
+          className="px-3 py-1.5 rounded-lg border border-th-bd-2 text-xs text-th-tx-3 hover:text-th-tx-1 hover:border-th-bd-3 transition-all"
         >
           Retry
         </button>
@@ -208,7 +190,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header bar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#303030] bg-[#141414] flex-shrink-0">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-th-bd-1 bg-th-bg-1 flex-shrink-0">
           {/* Type badge */}
           <span
             className="text-[10px] font-semibold px-2 py-0.5 rounded flex-shrink-0"
@@ -225,12 +207,12 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
             {item.state}
           </span>
 
-          <span className="text-xs text-[#555] flex-shrink-0">#{item.id}</span>
+          <span className="text-xs text-th-tx-6 flex-shrink-0">#{item.id}</span>
 
           <div className="flex-1" />
 
           {/* Last synced */}
-          <span className="text-[10px] text-[#444] flex-shrink-0">
+          <span className="text-[10px] text-th-tx-6 flex-shrink-0">
             synced {timeAgo(item.last_synced_at)}
           </span>
 
@@ -239,7 +221,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
             onClick={handleRefresh}
             disabled={refreshing}
             title="Refresh from ADO"
-            className="p-1.5 rounded text-[#555] hover:text-[#ccc] hover:bg-[#222] transition-all flex-shrink-0 disabled:opacity-40"
+            className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all flex-shrink-0 disabled:opacity-40"
           >
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
           </button>
@@ -248,7 +230,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
           <button
             onClick={() => window.api?.shell.openExternal(item.ado_url)}
             title="Open in Azure DevOps"
-            className="p-1.5 rounded text-[#555] hover:text-[#ccc] hover:bg-[#222] transition-all flex-shrink-0"
+            className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all flex-shrink-0"
           >
             <ExternalLink size={12} />
           </button>
@@ -259,28 +241,28 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
           <div className="max-w-3xl mx-auto px-8 py-7 flex flex-col gap-7">
 
             {/* Title */}
-            <h1 className="text-xl font-semibold text-white leading-snug">{item.title}</h1>
+            <h1 className="text-xl text-th-tx-1 leading-snug">{item.title}</h1>
 
             {/* Metadata grid */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-xs">
               {item.assigned_to && (
                 <div className="flex items-center gap-2">
-                  <User size={11} className="text-[#555] flex-shrink-0" />
-                  <span className="text-[#666]">Assigned to</span>
-                  <span className="text-[#ccc]">{item.assigned_to}</span>
+                  <User size={11} className="text-th-tx-6 flex-shrink-0" />
+                  <span className="text-th-tx-5">Assigned to</span>
+                  <span className="text-th-tx-2">{item.assigned_to}</span>
                 </div>
               )}
               {item.created_by && (
                 <div className="flex items-center gap-2">
-                  <User size={11} className="text-[#555] flex-shrink-0" />
-                  <span className="text-[#666]">Created by</span>
-                  <span className="text-[#ccc]">{item.created_by}</span>
+                  <User size={11} className="text-th-tx-6 flex-shrink-0" />
+                  <span className="text-th-tx-5">Created by</span>
+                  <span className="text-th-tx-2">{item.created_by}</span>
                 </div>
               )}
               {item.priority != null && (
                 <div className="flex items-center gap-2">
                   <AlertCircle size={11} className="flex-shrink-0" style={{ color: PRIORITY_COLORS[item.priority] || '#888' }} />
-                  <span className="text-[#666]">Priority</span>
+                  <span className="text-th-tx-5">Priority</span>
                   <span style={{ color: PRIORITY_COLORS[item.priority] || '#ccc' }}>
                     {PRIORITY_LABELS[item.priority] || item.priority}
                   </span>
@@ -288,23 +270,23 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
               )}
               {item.story_points != null && (
                 <div className="flex items-center gap-2">
-                  <Layers size={11} className="text-[#555] flex-shrink-0" />
-                  <span className="text-[#666]">Story points</span>
-                  <span className="text-[#ccc]">{item.story_points}</span>
+                  <Layers size={11} className="text-th-tx-6 flex-shrink-0" />
+                  <span className="text-th-tx-5">Story points</span>
+                  <span className="text-th-tx-2">{item.story_points}</span>
                 </div>
               )}
               {item.iteration_path && (
                 <div className="flex items-center gap-2 col-span-2">
-                  <GitBranch size={11} className="text-[#555] flex-shrink-0" />
-                  <span className="text-[#666]">Iteration</span>
-                  <span className="text-[#ccc]">{item.iteration_path.split('\\').pop()}</span>
-                  <span className="text-[#444] text-[10px]">{item.iteration_path}</span>
+                  <GitBranch size={11} className="text-th-tx-6 flex-shrink-0" />
+                  <span className="text-th-tx-5">Iteration</span>
+                  <span className="text-th-tx-2">{item.iteration_path.split('\\').pop()}</span>
+                  <span className="text-th-tx-6 text-[10px]">{item.iteration_path}</span>
                 </div>
               )}
               {item.parent_id && (
                 <div className="flex items-center gap-2">
-                  <ChevronRight size={11} className="text-[#555] flex-shrink-0" />
-                  <span className="text-[#666]">Parent</span>
+                  <ChevronRight size={11} className="text-th-tx-6 flex-shrink-0" />
+                  <span className="text-th-tx-5">Parent</span>
                   <button
                     onClick={openParent}
                     className="text-accent hover:underline transition-all"
@@ -315,16 +297,16 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
               )}
               {item.changed_at_ado && (
                 <div className="flex items-center gap-2">
-                  <Clock size={11} className="text-[#555] flex-shrink-0" />
-                  <span className="text-[#666]">Updated</span>
-                  <span className="text-[#ccc]">{formatDate(item.changed_at_ado)}</span>
+                  <Clock size={11} className="text-th-tx-6 flex-shrink-0" />
+                  <span className="text-th-tx-5">Updated</span>
+                  <span className="text-th-tx-2">{formatDate(item.changed_at_ado)}</span>
                 </div>
               )}
               {item.comment_count > 0 && (
                 <div className="flex items-center gap-2">
-                  <CheckCircle size={11} className="text-[#555] flex-shrink-0" />
-                  <span className="text-[#666]">Comments</span>
-                  <span className="text-[#ccc]">{item.comment_count}</span>
+                  <CheckCircle size={11} className="text-th-tx-6 flex-shrink-0" />
+                  <span className="text-th-tx-5">Comments</span>
+                  <span className="text-th-tx-2">{item.comment_count}</span>
                 </div>
               )}
             </div>
@@ -332,11 +314,11 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
             {/* Tags */}
             {item.tags && (
               <div className="flex items-center gap-2 flex-wrap">
-                <Tag size={11} className="text-[#555] flex-shrink-0" />
+                <Tag size={11} className="text-th-tx-6 flex-shrink-0" />
                 {item.tags.split(';').map((tag) => tag.trim()).filter(Boolean).map((tag) => (
                   <span
                     key={tag}
-                    className="text-[10px] px-2 py-0.5 rounded-full bg-[#252525] border border-[#383838] text-[#aaa]"
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-th-bg-5 border border-th-bd-2 text-th-tx-3"
                   >
                     {tag}
                   </span>
@@ -345,7 +327,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
             )}
 
             {/* Divider */}
-            <div className="border-t border-[#252525]" />
+            <div className="border-t border-th-bd-1" />
 
             {/* Description */}
             <HtmlBlock html={item.description} label="Description" />
@@ -355,7 +337,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
 
             {/* Empty state */}
             {!item.description && !item.acceptance_criteria && (
-              <p className="text-sm text-[#444] text-center py-4">No description provided.</p>
+              <p className="text-sm text-th-tx-6 text-center py-4">No description provided.</p>
             )}
 
           </div>
@@ -363,10 +345,10 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
       </div>
 
       {/* Right panel — Linked In Codex */}
-      <div className="w-56 flex-shrink-0 border-l border-[#303030] bg-[#111111] flex flex-col">
-        <div className="flex items-center gap-1.5 px-3 py-3 border-b border-[#282828]">
-          <Link2 size={12} className="text-[#666]" />
-          <span className="text-xs text-[#888] font-medium uppercase tracking-wide flex-1">Linked In Codex</span>
+      <div className="w-56 flex-shrink-0 border-l border-th-bd-1 bg-th-bg-1 flex flex-col">
+        <div className="flex items-center gap-1.5 px-3 py-3 border-b border-th-bd-1">
+          <Link2 size={12} className="text-th-tx-5" />
+          <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide flex-1">Linked In Codex</span>
           {([
             { type: 'note' as const, Icon: FileText, label: 'New note' },
             { type: 'code' as const, Icon: Code2, label: 'New code block' },
@@ -377,7 +359,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
               onClick={() => createLinked(type)}
               disabled={creating !== null}
               title={label}
-              className="p-1 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all disabled:opacity-40"
+              className="p-1 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all disabled:opacity-40"
             >
               {creating === type
                 ? <Loader size={11} className="animate-spin" />
@@ -388,22 +370,22 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
         </div>
         <div className="flex-1 overflow-y-auto py-1">
           {linkedEntities.length === 0 ? (
-            <p className="text-xs text-[#333] text-center py-6">Not linked to anything</p>
+            <p className="text-xs text-th-tx-6 text-center py-6">Not linked to anything</p>
           ) : (
             linkedEntities.map((e, i) => (
               <button
                 key={i}
                 onClick={() => openTab({ entityType: e.entityType, entityId: e.entityId, title: e.title })}
-                className="w-full flex items-start gap-2 px-3 py-2 hover:bg-[#1a1a1a] transition-all text-left group"
+                className="w-full flex items-start gap-2 px-3 py-2 hover:bg-th-bg-3 transition-all text-left group"
               >
-                <span className="text-[#555] group-hover:text-accent transition-colors flex-shrink-0 mt-0.5">
+                <span className="text-th-tx-6 group-hover:text-accent transition-colors flex-shrink-0 mt-0.5">
                   {ENTITY_ICONS[e.entityType] || <FileText size={11} />}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xs text-[#ddd] group-hover:text-accent transition-colors truncate leading-snug">
+                  <p className="text-xs text-th-tx-2 group-hover:text-accent transition-colors truncate leading-snug">
                     {e.title || 'Untitled'}
                   </p>
-                  <p className="text-[10px] text-[#555] capitalize mt-0.5">{e.entityType}</p>
+                  <p className="text-[10px] text-th-tx-6 capitalize mt-0.5">{e.entityType}</p>
                 </div>
               </button>
             ))

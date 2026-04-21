@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
+import { type WorkItem, TYPE_COLORS, DONE_STATES } from '../../lib/workItemUtils'
 
 // ─── Custom Node Types ───────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ function RectNode({ data, selected }: NodeProps): React.JSX.Element {
   return (
     <div
       style={baseNodeStyle}
-      className={`px-4 py-2.5 rounded-lg border min-w-[100px] text-center text-[#e5e5e5] bg-[#252525] transition-all ${selected ? 'border-[#e8b800] shadow-[0_0_0_1px_#e8b800]' : 'border-[#444]'}`}
+      className={`px-4 py-2.5 rounded-lg border min-w-[100px] text-center text-th-tx-1 bg-th-bg-5 transition-all ${selected ? 'border-[#e8b800] shadow-[0_0_0_1px_#e8b800]' : 'border-th-bd-3'}`}
     >
       <Handle type="target" position={Position.Top} className="!bg-[#e8b800] !border-0 !w-2 !h-2" />
       <Handle type="source" position={Position.Bottom} className="!bg-[#e8b800] !border-0 !w-2 !h-2" />
@@ -51,7 +52,7 @@ function CircleNode({ data, selected }: NodeProps): React.JSX.Element {
   return (
     <div
       style={baseNodeStyle}
-      className={`w-24 h-24 rounded-full border flex items-center justify-center text-center text-[#e5e5e5] bg-[#252525] transition-all text-xs px-2 ${selected ? 'border-[#e8b800] shadow-[0_0_0_1px_#e8b800]' : 'border-[#444]'}`}
+      className={`w-24 h-24 rounded-full border flex items-center justify-center text-center text-th-tx-1 bg-th-bg-5 transition-all text-xs px-2 ${selected ? 'border-[#e8b800] shadow-[0_0_0_1px_#e8b800]' : 'border-th-bd-3'}`}
     >
       <Handle type="target" position={Position.Top} className="!bg-[#e8b800] !border-0 !w-2 !h-2" />
       <Handle type="source" position={Position.Bottom} className="!bg-[#e8b800] !border-0 !w-2 !h-2" />
@@ -77,7 +78,7 @@ function DiamondNode({ data, selected }: NodeProps): React.JSX.Element {
           strokeWidth={selected ? 2 : 1}
         />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center text-xs text-[#e5e5e5] text-center px-4">
+      <div className="absolute inset-0 flex items-center justify-center text-xs text-th-tx-1 text-center px-4">
         {data.label || 'Decision'}
       </div>
     </div>
@@ -88,7 +89,7 @@ function TextNode({ data, selected }: NodeProps): React.JSX.Element {
   return (
     <div
       style={baseNodeStyle}
-      className={`px-3 py-1 min-w-[80px] text-center text-[#aaa] border-b transition-all ${selected ? 'border-[#e8b800]' : 'border-transparent'}`}
+      className={`px-3 py-1 min-w-[80px] text-center text-th-tx-3 border-b transition-all ${selected ? 'border-[#e8b800]' : 'border-transparent'}`}
     >
       <Handle type="target" position={Position.Top} className="!bg-[#e8b800] !border-0 !w-2 !h-2 !opacity-0 hover:!opacity-100" />
       <Handle type="source" position={Position.Bottom} className="!bg-[#e8b800] !border-0 !w-2 !h-2 !opacity-0 hover:!opacity-100" />
@@ -102,25 +103,6 @@ const nodeTypes: NodeTypes = {
   circle: CircleNode,
   diamond: DiamondNode,
   text: TextNode,
-}
-
-// ─── Work Items interface (reuse same type) ──────────────────────────────────
-
-interface WorkItem {
-  id: string
-  url: string
-  item_number: string
-  is_done: number
-  is_ado: number
-  cached_title: string | null
-  cached_type: string | null
-  cached_state: string | null
-  cached_assigned_to: string | null
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  'Bug': '#cc3333', 'Task': '#007acc', 'User Story': '#009933',
-  'Feature': '#773b93', 'Epic': '#ff6600', 'Test Case': '#004b50',
 }
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
@@ -317,7 +299,6 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     setWorkItems((prev) => prev.filter((i) => i.id !== workItemId))
   }
 
-  const DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
   const effectiveDone = (i: WorkItem): boolean =>
     i.is_ado && i.cached_state ? DONE_STATES.has(i.cached_state) : !!i.is_done
   const allDone = workItems.length > 0 && workItems.every(effectiveDone)
@@ -334,15 +315,15 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
       {/* Main canvas area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-[#303030] bg-[#141414] flex-shrink-0">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-th-bd-1 bg-th-bg-1 flex-shrink-0">
           {/* Node type selector */}
-          <div className="flex items-center gap-0.5 bg-[#1e1e1e] border border-[#333] rounded-md p-0.5">
+          <div className="flex items-center gap-0.5 bg-th-bg-3 border border-th-bd-2 rounded-md p-0.5">
             {nodeTypeButtons.map((b) => (
               <button
                 key={b.type}
                 onClick={() => setSelectedNodeType(b.type)}
                 title={b.label}
-                className={`px-2 py-1 rounded text-xs flex items-center gap-1 transition-all ${selectedNodeType === b.type ? 'bg-[#383838] text-white' : 'text-[#777] hover:text-[#ccc]'}`}
+                className={`px-2 py-1 rounded text-xs flex items-center gap-1 transition-all ${selectedNodeType === b.type ? 'bg-th-bd-2 text-th-tx-1' : 'text-th-tx-4 hover:text-th-tx-2'}`}
               >
                 {b.icon}
                 <span className="text-[11px]">{b.label}</span>
@@ -361,28 +342,28 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
           <button
             onClick={deleteSelected}
             title="Delete selected (Del)"
-            className="p-1.5 rounded text-[#666] hover:text-red-400 hover:bg-[#2a1a1a] transition-all"
+            className="p-1.5 rounded text-th-tx-5 hover:text-red-400 hover:bg-th-danger transition-all"
           >
             <Minus size={13} />
           </button>
 
           <div className="flex-1" />
 
-          <button onClick={togglePin} className={`p-1.5 rounded transition-all ${isPinned ? 'text-accent' : 'text-[#666] hover:text-[#ddd]'}`} title={isPinned ? 'Unpin' : 'Pin'}>
+          <button onClick={togglePin} className={`p-1.5 rounded transition-all ${isPinned ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`} title={isPinned ? 'Unpin' : 'Pin'}>
             <Pin size={13} />
           </button>
-          <button onClick={deleteFlow} className="p-1.5 rounded transition-all text-[#666] hover:text-red-400 hover:bg-[#2a1a1a]" title="Delete flow">
+          <button onClick={deleteFlow} className="p-1.5 rounded transition-all text-th-tx-5 hover:text-red-400 hover:bg-th-danger" title="Delete flow">
             <Trash2 size={13} />
           </button>
         </div>
 
         {/* Title */}
-        <div className="px-6 pt-4 pb-2 flex-shrink-0 border-b border-[#252525]">
+        <div className="px-6 pt-4 pb-2 flex-shrink-0 border-b border-th-bd-1">
           <input
             value={title}
             onChange={handleTitleChange}
             placeholder="Untitled Flow"
-            className="w-full bg-transparent text-2xl font-semibold text-white placeholder-[#444] outline-none caret-accent"
+            className="w-full bg-transparent text-2xl text-th-tx-1 placeholder-th-tx-5 outline-none caret-accent"
           />
         </div>
 
@@ -424,7 +405,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
             {/* Hint panel */}
             {nodes.length === 0 && (
               <Panel position="top-center">
-                <div className="mt-8 text-[#555] text-xs text-center select-none pointer-events-none">
+                <div className="mt-8 text-th-tx-6 text-xs text-center select-none pointer-events-none">
                   <p>Click "Add Node" to start building your flow</p>
                   <p className="mt-1">Drag from a node handle to connect • Double-click to rename • Delete key removes selected</p>
                 </div>
@@ -435,8 +416,8 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
           {/* Node label editor modal */}
           {editingNodeId && (
             <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/40">
-              <div className="bg-[#202020] border border-[#444] rounded-xl p-4 w-72 shadow-2xl">
-                <p className="text-xs text-[#888] mb-2">Edit label</p>
+              <div className="bg-th-bg-4 border border-th-bd-3 rounded-xl p-4 w-72 shadow-2xl">
+                <p className="text-xs text-th-tx-4 mb-2">Edit label</p>
                 <input
                   value={editingLabel}
                   onChange={(e) => setEditingLabel(e.target.value)}
@@ -445,10 +426,10 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
                     if (e.key === 'Escape') setEditingNodeId(null)
                   }}
                   autoFocus
-                  className="w-full bg-[#1a1a1a] border border-[#484848] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-accent caret-accent"
+                  className="w-full bg-th-bg-3 border border-th-bd-3 rounded-lg px-3 py-2 text-sm text-th-tx-1 outline-none focus:border-accent caret-accent"
                 />
                 <div className="flex justify-end gap-2 mt-3">
-                  <button onClick={() => setEditingNodeId(null)} className="px-3 py-1.5 text-xs text-[#888] hover:text-white transition-colors">Cancel</button>
+                  <button onClick={() => setEditingNodeId(null)} className="px-3 py-1.5 text-xs text-th-tx-4 hover:text-th-tx-1 transition-colors">Cancel</button>
                   <button onClick={commitNodeEdit} className="px-3 py-1.5 text-xs bg-accent hover:bg-accent-hover text-black font-medium rounded-md transition-all">Save</button>
                 </div>
               </div>
@@ -458,21 +439,21 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
       </div>
 
       {/* Work items panel */}
-      <div className={`w-60 flex-shrink-0 border-l border-[#303030] bg-[#111111] flex flex-col transition-opacity ${allDone ? 'opacity-50' : ''}`}>
-        <div className="flex items-center justify-between px-3 py-3 border-b border-[#282828]">
+      <div className={`w-60 flex-shrink-0 border-l border-th-bd-1 bg-th-bg-1 flex flex-col transition-opacity ${allDone ? 'opacity-50' : ''}`}>
+        <div className="flex items-center justify-between px-3 py-3 border-b border-th-bd-1">
           <div className="flex items-center gap-1.5">
-            <Link2 size={12} className="text-[#666]" />
-            <span className="text-xs text-[#888] font-medium uppercase tracking-wide">Work Items</span>
+            <Link2 size={12} className="text-th-tx-5" />
+            <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide">Work Items</span>
             {allDone && <span className="text-xs text-accent ml-1">✓ Done</span>}
           </div>
           <div className="flex items-center gap-0.5">
-            <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all">
+            <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
               <Clipboard size={12} />
             </button>
             {!adoConfigured && (
               <button
                 onClick={() => setShowAddItem(!showAddItem)}
-                className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all"
+                className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all"
               >
                 <Plus size={12} />
               </button>
@@ -481,7 +462,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
         </div>
 
         {adoConfigured && (
-          <div className="px-3 py-2 border-b border-[#282828]">
+          <div className="px-3 py-2 border-b border-th-bd-1">
             <WorkItemSearch
               onAdd={(url) => { addWorkItem(url) }}
             />
@@ -489,30 +470,30 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
         )}
 
         {showAddItem && !adoConfigured && (
-          <div className="px-3 py-2 border-b border-[#282828]">
+          <div className="px-3 py-2 border-b border-th-bd-1">
             <input
               value={newItemUrl}
               onChange={(e) => setNewItemUrl(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addWorkItem()}
               placeholder="Paste Azure DevOps URL..."
               autoFocus
-              className="w-full bg-[#1a1a1a] border border-[#383838] rounded px-2 py-1.5 text-xs text-[#e5e5e5] placeholder-[#444] outline-none focus:border-accent"
+              className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1.5 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
             />
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto py-1">
           {workItems.length === 0 ? (
-            <p className="text-xs text-[#555] text-center py-6">No linked work items</p>
+            <p className="text-xs text-th-tx-6 text-center py-6">No linked work items</p>
           ) : (
             workItems.map((item) => (
-              <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-[#1a1a1a] transition-all">
+              <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-th-bg-3 transition-all">
                 {item.is_ado ? (
-                  <span className="flex-shrink-0 text-[#555] mt-0.5 cursor-default" title="State managed by ADO">
+                  <span className="flex-shrink-0 text-th-tx-6 mt-0.5 cursor-default" title="State managed by ADO">
                     {effectiveDone(item) ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
                   </span>
                 ) : (
-                  <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5">
+                  <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-th-tx-6 hover:text-accent transition-colors mt-0.5">
                     {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
                   </button>
                 )}
@@ -522,17 +503,17 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
                 >
                   {item.cached_title ? (
                     <>
-                      <p className="text-xs text-[#ddd] truncate leading-snug">{item.cached_title}</p>
+                      <p className="text-xs text-th-tx-2 truncate leading-snug">{item.cached_title}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {item.cached_type && (
                           <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: TYPE_COLORS[item.cached_type] || '#666' }} />
                         )}
-                        <span className="text-[10px] text-[#555]">#{item.item_number}</span>
-                        {item.cached_state && <span className="text-[10px] text-[#555]">· {item.cached_state}</span>}
+                        <span className="text-[10px] text-th-tx-6">#{item.item_number}</span>
+                        {item.cached_state && <span className="text-[10px] text-th-tx-6">· {item.cached_state}</span>}
                       </div>
                     </>
                   ) : (
-                    <p className={`text-xs truncate ${item.is_done ? 'line-through text-[#444]' : 'text-[#bbb]'}`}>#{item.item_number}</p>
+                    <p className={`text-xs truncate ${item.is_done ? 'line-through text-th-tx-6' : 'text-th-tx-2'}`}>#{item.item_number}</p>
                   )}
                 </button>
                 <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
@@ -541,10 +522,10 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
                       <AlertTriangle size={11} />
                     </span>
                   )}
-                  <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-[#333] group-hover:text-[#666] transition-colors p-0.5">
+                  <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-th-tx-6 group-hover:text-th-tx-5 transition-colors p-0.5">
                     <ExternalLink size={11} />
                   </button>
-                  <button onClick={() => removeWorkItem(item.id)} className="text-[#333] group-hover:text-[#666] hover:!text-red-400 transition-colors p-0.5">
+                  <button onClick={() => removeWorkItem(item.id)} className="text-th-tx-6 group-hover:text-th-tx-5 hover:!text-red-400 transition-colors p-0.5">
                     <X size={11} />
                   </button>
                 </div>

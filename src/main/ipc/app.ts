@@ -1,4 +1,5 @@
 import { ipcMain, shell } from 'electron'
+import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '../db'
 
 export function registerAppHandlers(): void {
@@ -77,7 +78,7 @@ export function registerAppHandlers(): void {
     const like = `%${query}%`
 
     // Notes — try FTS first, fall back to LIKE if it throws (e.g. special chars)
-    let notes: any[] = []
+    let notes: unknown[] = []
     try {
       // Sanitize query for FTS5: remove special characters that cause parse errors
       const ftsQuery = query.replace(/["()*:^~\-]/g, ' ').trim()
@@ -140,7 +141,6 @@ export function registerAppHandlers(): void {
   })
 
   ipcMain.handle('templates:create', (_, name: string, contentJson: string) => {
-    const { v4: uuidv4 } = require('uuid')
     const db = getDb()
     const id = uuidv4()
     db.prepare('INSERT INTO templates (id, name, content_json, created_at) VALUES (?, ?, ?, ?)')

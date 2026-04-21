@@ -16,7 +16,7 @@ export default function Sidebar(): React.JSX.Element {
   const adoError = adoStatus === 'error'
 
   return (
-    <aside className="flex flex-col w-[52px] h-full bg-[#0a0a0a] border-r border-[#383838] py-3 items-center titlebar-no-drag flex-shrink-0">
+    <aside className="flex flex-col w-[52px] h-full bg-th-bg-0 border-r border-th-bd-2 py-3 items-center titlebar-no-drag flex-shrink-0">
       {/* Logo */}
       <div className="mb-5 w-8 h-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
         <span className="text-white font-bold text-sm">CC</span>
@@ -33,14 +33,14 @@ export default function Sidebar(): React.JSX.Element {
               relative w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150
               ${
                 activeSection === item.id && viewMode !== 'tab'
-                  ? 'bg-[#2e2e2e] text-accent'
-                  : 'text-[#888] hover:text-[#d0d0d0] hover:bg-[#222]'
+                  ? 'bg-th-bg-6 text-accent'
+                  : 'text-th-tx-4 hover:text-th-tx-2 hover:bg-th-bg-4'
               }
             `}
           >
             {item.icon}
             {item.id === 'work-items' && adoError && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-[#0a0a0a]" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-th-bg-0" />
             )}
           </button>
         ))}
@@ -52,7 +52,7 @@ export default function Sidebar(): React.JSX.Element {
           <button
             title="ADO connection error — click to go to Settings"
             onClick={() => setActiveSection('settings')}
-            className="w-full flex items-center justify-center p-2.5 rounded-md text-amber-500 hover:bg-[#222] transition-all duration-150"
+            className="w-full flex items-center justify-center p-2.5 rounded-md text-amber-500 hover:bg-th-bg-4 transition-all duration-150"
           >
             <AlertTriangle size={15} />
           </button>
@@ -60,14 +60,14 @@ export default function Sidebar(): React.JSX.Element {
         <button
           title="Toggle theme"
           onClick={toggleTheme}
-          className="w-full flex items-center justify-center p-2.5 rounded-md text-[#888] hover:text-[#d0d0d0] hover:bg-[#222] transition-all duration-150"
+          className="w-full flex items-center justify-center p-2.5 rounded-md text-th-tx-4 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all duration-150"
         >
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
         <button
           title="Settings"
           onClick={() => setActiveSection('settings')}
-          className={`w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150 ${activeSection === 'settings' && viewMode !== 'tab' ? 'bg-[#2e2e2e] text-accent' : 'text-[#888] hover:text-[#d0d0d0] hover:bg-[#222]'}`}
+          className={`w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150 ${activeSection === 'settings' && viewMode !== 'tab' ? 'bg-th-bg-6 text-accent' : 'text-th-tx-4 hover:text-th-tx-2 hover:bg-th-bg-4'}`}
         >
           <Settings size={16} />
         </button>
