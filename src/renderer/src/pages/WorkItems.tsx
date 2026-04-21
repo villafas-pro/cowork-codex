@@ -175,15 +175,18 @@ export default function WorkItems(): React.JSX.Element {
                 >
                   <div className="flex items-start gap-3 p-3">
                     {/* Checkbox */}
-                    <button
-                      onClick={() => toggleDone(item.id)}
-                      className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5"
-                    >
-                      {done
-                        ? <CheckSquare size={15} className="text-accent" />
-                        : <Square size={15} />
-                      }
-                    </button>
+                    {item.is_ado ? (
+                      <span className="flex-shrink-0 text-[#555] mt-0.5 cursor-default" title="State managed by ADO">
+                        {done ? <CheckSquare size={15} className="text-accent" /> : <Square size={15} />}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => toggleDone(item.id)}
+                        className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5"
+                      >
+                        {done ? <CheckSquare size={15} className="text-accent" /> : <Square size={15} />}
+                      </button>
+                    )}
 
                     {/* Content */}
                     <button

@@ -137,7 +137,10 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     setWorkItems((prev) => prev.filter((i) => i.id !== workItemId))
   }
 
-  const allDone = workItems.length > 0 && workItems.every((i) => i.is_done)
+  const DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
+  const effectiveDone = (i: WorkItem): boolean =>
+    i.is_ado && i.cached_state ? DONE_STATES.has(i.cached_state) : !!i.is_done
+  const allDone = workItems.length > 0 && workItems.every(effectiveDone)
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -275,12 +278,18 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
           ) : (
             workItems.map((item) => (
               <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-[#1a1a1a] transition-all">
-                <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5">
-                  {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
-                </button>
+                {item.is_ado ? (
+                  <span className="flex-shrink-0 text-[#555] mt-0.5 cursor-default" title="State managed by ADO">
+                    {effectiveDone(item) ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
+                  </span>
+                ) : (
+                  <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5">
+                    {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
+                  </button>
+                )}
                 <button
                   onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: item.cached_title || `#${item.item_number}` })}
-                  className={`flex-1 text-left min-w-0 transition-all hover:text-accent ${item.is_done ? 'opacity-40' : ''}`}
+                  className={`flex-1 text-left min-w-0 transition-all hover:text-accent ${effectiveDone(item) ? 'opacity-40' : ''}`}
                 >
                   {item.cached_title ? (
                     <>
