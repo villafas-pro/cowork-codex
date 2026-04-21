@@ -164,6 +164,14 @@ export function initializeSchema(db: Database.Database): void {
     INSERT OR IGNORE INTO todo_content (id, content) VALUES (1, '{}');
   `)
 
+  // Prune links whose target entity no longer exists
+  db.prepare(`
+    DELETE FROM work_item_links
+    WHERE (entity_type = 'note' AND entity_id NOT IN (SELECT id FROM notes))
+       OR (entity_type = 'code' AND entity_id NOT IN (SELECT id FROM code_blocks))
+       OR (entity_type = 'flow' AND entity_id NOT IN (SELECT id FROM flows))
+  `).run()
+
   // One-time dedup: for each item_number with multiple rows, keep the oldest,
   // re-point all links to it, then delete the extras.
   const dupes = db.prepare(`

@@ -134,29 +134,33 @@ export function registerWorkItemHandlers(): void {
     return db.prepare('SELECT * FROM work_items WHERE item_number = ? LIMIT 1').get(itemNumber) || null
   })
 
-  // Get linked entities (notes/code/flows) for a work item by item_number
+  // Get linked entities (notes/code/flows) for a work item by item_number.
+  // Silently prunes any links whose target entity has been deleted.
   ipcMain.handle('workItems:getLinkedEntities', (_, itemNumber: string) => {
     const db = getDb()
-    // Find the work_item id(s) for this item_number
     const items = db.prepare('SELECT id FROM work_items WHERE item_number = ?').all(itemNumber) as { id: string }[]
     if (items.length === 0) return []
 
     const results: { entityType: string; entityId: string; title: string }[] = []
     for (const wi of items) {
-      const links = db.prepare('SELECT entity_type, entity_id FROM work_item_links WHERE work_item_id = ?').all(wi.id) as { entity_type: string; entity_id: string }[]
+      const links = db.prepare('SELECT id, entity_type, entity_id FROM work_item_links WHERE work_item_id = ?').all(wi.id) as { id: string; entity_type: string; entity_id: string }[]
       for (const link of links) {
-        let title = ''
+        let row: { title: string } | undefined
         if (link.entity_type === 'note') {
-          const row = db.prepare('SELECT title FROM notes WHERE id = ?').get(link.entity_id) as { title: string } | undefined
-          title = row?.title || 'Untitled'
+          row = db.prepare('SELECT title FROM notes WHERE id = ?').get(link.entity_id) as { title: string } | undefined
         } else if (link.entity_type === 'code') {
-          const row = db.prepare('SELECT title FROM code_blocks WHERE id = ?').get(link.entity_id) as { title: string } | undefined
-          title = row?.title || 'Untitled'
+          row = db.prepare('SELECT title FROM code_blocks WHERE id = ?').get(link.entity_id) as { title: string } | undefined
         } else if (link.entity_type === 'flow') {
-          const row = db.prepare('SELECT title FROM flows WHERE id = ?').get(link.entity_id) as { title: string } | undefined
-          title = row?.title || 'Untitled'
+          row = db.prepare('SELECT title FROM flows WHERE id = ?').get(link.entity_id) as { title: string } | undefined
         }
-        results.push({ entityType: link.entity_type, entityId: link.entity_id, title })
+
+        if (!row) {
+          // Entity was deleted — remove the stale link
+          db.prepare('DELETE FROM work_item_links WHERE id = ?').run(link.id)
+          continue
+        }
+
+        results.push({ entityType: link.entity_type, entityId: link.entity_id, title: row.title || 'Untitled' })
       }
     }
     return results
