@@ -311,7 +311,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
 
               {details && (
                 <div
-                  className="px-3 pt-4 pb-5 flex flex-col gap-4"
+                  className="px-3 pt-3 pb-4 flex flex-col gap-2"
                   style={{
                     opacity: detailsVisible ? 1 : 0,
                     transition: 'opacity 0.3s ease',
