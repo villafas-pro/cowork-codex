@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { NoteLink } from './extensions/NoteLink'
+import WorkItemSearch from '../WorkItemSearch'
 
 interface WorkItem {
   id: string
@@ -27,6 +28,8 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
   const [newItemUrl, setNewItemUrl] = useState('')
   const [showAddItem, setShowAddItem] = useState(false)
+  const [adoConfigured, setAdoConfigured] = useState(false)
+  const [showAdoSearch, setShowAdoSearch] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
 
   const titleRef = useRef('')
@@ -53,6 +56,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     pendingContent.current = null
     loadNote()
     loadWorkItems()
+    window.api?.ado.isConfigured().then(setAdoConfigured)
   }, [noteId])
 
   // Image paste + drag-and-drop handler
@@ -297,13 +301,25 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
             <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all">
               <Clipboard size={12} />
             </button>
-            <button onClick={() => setShowAddItem(!showAddItem)} className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all">
+            <button
+              onClick={() => { adoConfigured ? setShowAdoSearch(!showAdoSearch) : setShowAddItem(!showAddItem) }}
+              className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all"
+            >
               <Plus size={12} />
             </button>
           </div>
         </div>
 
-        {showAddItem && (
+        {showAdoSearch && (
+          <div className="px-3 py-2 border-b border-[#282828]">
+            <WorkItemSearch
+              onAdd={(url, itemNumber) => { addWorkItem(url); setShowAdoSearch(false) }}
+              onCancel={() => setShowAdoSearch(false)}
+            />
+          </div>
+        )}
+
+        {showAddItem && !showAdoSearch && (
           <div className="px-3 py-2 border-b border-[#282828]">
             <input
               value={newItemUrl}

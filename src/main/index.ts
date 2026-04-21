@@ -7,6 +7,7 @@ import { registerWorkItemHandlers } from './ipc/workItems'
 import { registerCodeBlockHandlers } from './ipc/codeBlocks'
 import { registerFlowHandlers } from './ipc/flows'
 import { registerAppHandlers } from './ipc/app'
+import { registerAdoHandlers } from './ipc/ado'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -143,6 +144,7 @@ app.whenReady().then(() => {
   registerCodeBlockHandlers()
   registerFlowHandlers()
   registerAppHandlers()
+  registerAdoHandlers()
 
   createWindow()
   createTray()

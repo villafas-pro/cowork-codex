@@ -53,8 +53,8 @@ export default function Sidebar(): React.JSX.Element {
         </button>
         <button
           title="Settings"
-          onClick={() => setActiveSection('home')}
-          className="w-full flex items-center justify-center p-2.5 rounded-md text-[#888] hover:text-[#d0d0d0] hover:bg-[#222] transition-all duration-150"
+          onClick={() => setActiveSection('settings')}
+          className={`w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150 ${activeSection === 'settings' && viewMode !== 'tab' ? 'bg-[#2e2e2e] text-accent' : 'text-[#888] hover:text-[#d0d0d0] hover:bg-[#222]'}`}
         >
           <Settings size={16} />
         </button>

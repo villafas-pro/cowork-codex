@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, CheckSquare, Square, ExternalLink, X } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import WorkItemSearch from '../WorkItemSearch'
 
 const LANGUAGES = [
   'plaintext', 'javascript', 'typescript', 'python', 'csharp', 'sql',
@@ -26,6 +27,8 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
   const [newItemUrl, setNewItemUrl] = useState('')
   const [showAddItem, setShowAddItem] = useState(false)
+  const [adoConfigured, setAdoConfigured] = useState(false)
+  const [showAdoSearch, setShowAdoSearch] = useState(false)
 
   const titleRef = useRef('')
   const languageRef = useRef('plaintext')
@@ -34,6 +37,7 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   useEffect(() => {
     loadBlock()
     loadWorkItems()
+    window.api?.ado.isConfigured().then(setAdoConfigured)
   }, [blockId])
 
   async function loadBlock(): Promise<void> {
@@ -221,13 +225,25 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
             <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all">
               <Clipboard size={12} />
             </button>
-            <button onClick={() => setShowAddItem(!showAddItem)} className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all">
+            <button
+              onClick={() => { adoConfigured ? setShowAdoSearch(!showAdoSearch) : setShowAddItem(!showAddItem) }}
+              className="p-1.5 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all"
+            >
               <Plus size={12} />
             </button>
           </div>
         </div>
 
-        {showAddItem && (
+        {showAdoSearch && (
+          <div className="px-3 py-2 border-b border-[#282828]">
+            <WorkItemSearch
+              onAdd={(url) => { addWorkItem(url); setShowAdoSearch(false) }}
+              onCancel={() => setShowAdoSearch(false)}
+            />
+          </div>
+        )}
+
+        {showAddItem && !showAdoSearch && (
           <div className="px-3 py-2 border-b border-[#282828]">
             <input
               value={newItemUrl}

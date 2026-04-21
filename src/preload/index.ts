@@ -94,6 +94,15 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('templates:delete', id)
   },
 
+  // Azure DevOps
+  ado: {
+    getConfig: () => ipcRenderer.invoke('ado:getConfig'),
+    setConfig: (config: object) => ipcRenderer.invoke('ado:setConfig', config),
+    testConnection: () => ipcRenderer.invoke('ado:testConnection'),
+    search: (filters: object) => ipcRenderer.invoke('ado:search', filters),
+    isConfigured: () => ipcRenderer.invoke('ado:isConfigured')
+  },
+
   // Window controls (for custom title bar)
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

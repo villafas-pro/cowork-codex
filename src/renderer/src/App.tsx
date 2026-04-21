@@ -9,6 +9,7 @@ import Code from './pages/Code'
 import Flow from './pages/Flow'
 import WorkItems from './pages/WorkItems'
 import Images from './pages/Images'
+import Settings from './pages/Settings'
 import NoteEditor from './components/editors/NoteEditor'
 import CodeEditor from './components/editors/CodeEditor'
 import FlowEditor from './components/editors/FlowEditor'
@@ -85,6 +86,13 @@ declare global {
         minimize: () => void
         maximize: () => void
         close: () => void
+      }
+      ado: {
+        getConfig: () => Promise<any>
+        setConfig: (config: object) => Promise<any>
+        testConnection: () => Promise<any>
+        search: (filters: object) => Promise<any[]>
+        isConfigured: () => Promise<boolean>
       }
     }
   }
@@ -170,6 +178,7 @@ export default function App(): React.JSX.Element {
       case 'flow': return <Flow />
       case 'work-items': return <WorkItems />
       case 'images': return <Images />
+      case 'settings': return <Settings />
       default: return <Home />
     }
   }
