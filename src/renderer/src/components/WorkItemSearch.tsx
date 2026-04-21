@@ -74,6 +74,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
   const [popupPos, setPopupPos] = useState({ top: 0, right: 0 })
   const [details, setDetails] = useState<CachedDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsVisible, setDetailsVisible] = useState(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -114,13 +115,18 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
     setPopupPos({ top, right })
     setHoveredId(item.id)
     setDetails(null)
+    setDetailsVisible(false)
 
     // Fetch details after short delay
     enterTimer.current = setTimeout(async () => {
       setDetailsLoading(true)
       try {
         const cached = await window.api?.ado.fetchWorkItem(item.id)
-        if (cached) setDetails(cached)
+        if (cached) {
+          setDetails(cached)
+          // Let the DOM paint at opacity:0 first, then fade in
+          requestAnimationFrame(() => requestAnimationFrame(() => setDetailsVisible(true)))
+        }
       } catch { /* silently fail */ }
       finally { setDetailsLoading(false) }
     }, 280)
@@ -306,8 +312,8 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
               {details && (
                 <div
                   style={{
-                    opacity: details ? 1 : 0,
-                    transition: 'opacity 0.3s ease 0.1s',
+                    opacity: detailsVisible ? 1 : 0,
+                    transition: 'opacity 0.3s ease',
                   }}
                 >
                   {/* Assigned to */}
