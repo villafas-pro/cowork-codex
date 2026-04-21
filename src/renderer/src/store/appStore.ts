@@ -113,7 +113,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const newActive = newTabs[idx - 1] || newTabs[idx] || null
       newActiveId = newActive?.id || null
     }
-    set({ tabs: newTabs, activeTabId: newActiveId })
+    set({
+      tabs: newTabs,
+      activeTabId: newActiveId,
+      viewMode: newTabs.length === 0 ? 'section' : get().viewMode
+    })
   },
 
   setActiveTab: (id) => {
@@ -151,12 +155,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const newIndex = navIndex - 1
     const entry = navHistory[newIndex]
     set({ navIndex: newIndex })
-    if (entry.section) set({ activeSection: entry.section })
-    if (entry.entityId) {
+    if (entry.section) {
+      set({ activeSection: entry.section, viewMode: 'section' })
+    } else if (entry.entityId) {
       const tab = get().tabs.find(
         (t) => t.entityType === entry.entityType && t.entityId === entry.entityId
       )
-      if (tab) set({ activeTabId: tab.id })
+      if (tab) set({ activeTabId: tab.id, viewMode: 'tab' })
     }
   },
 
@@ -166,12 +171,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const newIndex = navIndex + 1
     const entry = navHistory[newIndex]
     set({ navIndex: newIndex })
-    if (entry.section) set({ activeSection: entry.section })
-    if (entry.entityId) {
+    if (entry.section) {
+      set({ activeSection: entry.section, viewMode: 'section' })
+    } else if (entry.entityId) {
       const tab = get().tabs.find(
         (t) => t.entityType === entry.entityType && t.entityId === entry.entityId
       )
-      if (tab) set({ activeTabId: tab.id })
+      if (tab) set({ activeTabId: tab.id, viewMode: 'tab' })
     }
   },
 

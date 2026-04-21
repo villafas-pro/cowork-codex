@@ -20,7 +20,7 @@ export default function Sidebar(): React.JSX.Element {
       {/* Logo */}
       <div className="mb-5 flex-shrink-0">
         <svg width="32" height="32" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="128" height="128" rx="22" fill="#141414"/>
+          <rect width="128" height="128" rx="22" fill="#e8b800"/>
           <rect x="26" y="17" width="62" height="76" rx="5" fill="#2c2c2c" transform="rotate(-7 56 55)"/>
           <path d="M 36 23 L 84 23 L 104 43 L 104 113 L 36 113 Z" fill="#202020"/>
           <path d="M 84 23 L 104 43 L 84 43 Z" fill="#e8b800"/>
