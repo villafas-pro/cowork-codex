@@ -42,27 +42,37 @@ export function registerWorkItemHandlers(): void {
     `).all(entityType, entityId)
   })
 
-  // Create work item
+  // Create work item (reuses existing row if same item_number already exists)
   ipcMain.handle('workItems:create', (_, url: string, entityType?: string, entityId?: string) => {
     const db = getDb()
-    const id = uuidv4()
     const now = Date.now()
 
     // Extract item number from URL (last numeric segment)
     const match = url.match(/(\d+)[^/]*$/)
     const itemNumber = match ? match[1] : url
 
-    db.prepare(`
-      INSERT INTO work_items (id, url, item_number, is_done, created_at, updated_at)
-      VALUES (?, ?, ?, 0, ?, ?)
-    `).run(id, url, itemNumber, now, now)
+    // Reuse existing row if this item_number is already tracked
+    const existing = db.prepare('SELECT * FROM work_items WHERE item_number = ? LIMIT 1').get(itemNumber) as any
+    const id = existing ? existing.id : uuidv4()
 
-    // Link to entity if provided
-    if (entityType && entityId) {
+    if (!existing) {
       db.prepare(`
-        INSERT INTO work_item_links (id, work_item_id, entity_type, entity_id)
-        VALUES (?, ?, ?, ?)
-      `).run(uuidv4(), id, entityType, entityId)
+        INSERT INTO work_items (id, url, item_number, is_done, created_at, updated_at)
+        VALUES (?, ?, ?, 0, ?, ?)
+      `).run(id, url, itemNumber, now, now)
+    }
+
+    // Link to entity if provided (link handler already guards against duplicates)
+    if (entityType && entityId) {
+      const linkExists = db
+        .prepare('SELECT id FROM work_item_links WHERE work_item_id = ? AND entity_type = ? AND entity_id = ?')
+        .get(id, entityType, entityId)
+      if (!linkExists) {
+        db.prepare(`
+          INSERT INTO work_item_links (id, work_item_id, entity_type, entity_id)
+          VALUES (?, ?, ?, ?)
+        `).run(uuidv4(), id, entityType, entityId)
+      }
     }
 
     return db.prepare('SELECT * FROM work_items WHERE id = ?').get(id)

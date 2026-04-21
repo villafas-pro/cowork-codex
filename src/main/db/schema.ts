@@ -163,4 +163,34 @@ export function initializeSchema(db: Database.Database): void {
     -- Seed todo_content if empty
     INSERT OR IGNORE INTO todo_content (id, content) VALUES (1, '{}');
   `)
+
+  // One-time dedup: for each item_number with multiple rows, keep the oldest,
+  // re-point all links to it, then delete the extras.
+  const dupes = db.prepare(`
+    SELECT item_number
+    FROM work_items
+    GROUP BY item_number
+    HAVING COUNT(*) > 1
+  `).all() as { item_number: string }[]
+
+  for (const { item_number } of dupes) {
+    const rows = db.prepare(
+      'SELECT id FROM work_items WHERE item_number = ? ORDER BY created_at ASC'
+    ).all(item_number) as { id: string }[]
+
+    const [keep, ...remove] = rows
+    for (const dup of remove) {
+      // Move links that don't already exist on the keeper
+      const links = db.prepare('SELECT * FROM work_item_links WHERE work_item_id = ?').all(dup.id) as any[]
+      for (const link of links) {
+        const exists = db.prepare(
+          'SELECT id FROM work_item_links WHERE work_item_id = ? AND entity_type = ? AND entity_id = ?'
+        ).get(keep.id, link.entity_type, link.entity_id)
+        if (!exists) {
+          db.prepare('UPDATE work_item_links SET work_item_id = ? WHERE id = ?').run(keep.id, link.id)
+        }
+      }
+      db.prepare('DELETE FROM work_items WHERE id = ?').run(dup.id)
+    }
+  }
 }
