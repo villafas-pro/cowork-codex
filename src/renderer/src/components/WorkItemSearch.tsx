@@ -292,7 +292,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
             className="overflow-hidden"
             style={{
               maxHeight: details ? '320px' : detailsLoading ? '48px' : '0px',
-              transition: 'max-height 0.25s ease',
+              transition: 'max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#363636] pt-2.5">
@@ -304,7 +304,12 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
               )}
 
               {details && (
-                <>
+                <div
+                  style={{
+                    opacity: details ? 1 : 0,
+                    transition: 'opacity 0.3s ease 0.1s',
+                  }}
+                >
                   {/* Assigned to */}
                   {(details.assigned_to || hoveredResult.assignedTo) && (
                     <div className="flex items-center gap-2">
@@ -349,7 +354,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
                       {stripHtml(details.description).length > 220 ? '…' : ''}
                     </p>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>
