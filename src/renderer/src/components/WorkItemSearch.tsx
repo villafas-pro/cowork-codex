@@ -256,16 +256,16 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
             width: POPUP_WIDTH,
             zIndex: 9999,
           }}
-          className="bg-[#1c1c1c] border border-[#383838] rounded-xl shadow-2xl overflow-hidden"
+          className="bg-[#242424] border border-[#484848] rounded-xl shadow-2xl overflow-hidden"
         >
           {/* Type + state header */}
-          <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+          <div className="flex items-center gap-2 px-3 pt-3 pb-2.5">
             <span
               className="text-[10px] font-semibold px-2 py-0.5 rounded"
               style={{
-                background: (TYPE_COLORS[hoveredResult.type] || '#555') + '22',
-                color: TYPE_COLORS[hoveredResult.type] || '#aaa',
-                border: `1px solid ${(TYPE_COLORS[hoveredResult.type] || '#555')}44`
+                background: (TYPE_COLORS[hoveredResult.type] || '#888') + '33',
+                color: TYPE_COLORS[hoveredResult.type] || '#ccc',
+                border: `1px solid ${(TYPE_COLORS[hoveredResult.type] || '#888')}66`
               }}
             >
               {hoveredResult.type}
@@ -273,26 +273,26 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
             <span
               className="text-[10px] font-medium px-2 py-0.5 rounded-full"
               style={{
-                background: (STATE_COLORS[hoveredResult.state] || '#888') + '22',
-                color: STATE_COLORS[hoveredResult.state] || '#aaa',
+                background: (STATE_COLORS[hoveredResult.state] || '#888') + '33',
+                color: STATE_COLORS[hoveredResult.state] || '#ccc',
               }}
             >
               {hoveredResult.state}
             </span>
-            <span className="text-[10px] text-[#444] ml-auto">#{hoveredResult.id}</span>
+            <span className="text-[10px] text-[#666] ml-auto">#{hoveredResult.id}</span>
           </div>
 
           {/* Title */}
-          <p className="px-3 pb-2 text-sm font-medium text-[#e5e5e5] leading-snug">
+          <p className="px-3 pb-3 text-[13px] font-semibold text-white leading-snug">
             {hoveredResult.title}
           </p>
 
           {/* Details area */}
-          <div className="px-3 pb-3 flex flex-col gap-1.5 border-t border-[#282828] pt-2.5">
+          <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#363636] pt-2.5">
             {detailsLoading && !details && (
               <div className="flex items-center gap-1.5 py-1">
-                <Loader size={10} className="text-[#555] animate-spin" />
-                <span className="text-[10px] text-[#444]">Loading details…</span>
+                <Loader size={10} className="text-[#888] animate-spin" />
+                <span className="text-[11px] text-[#888]">Loading details…</span>
               </div>
             )}
 
@@ -300,44 +300,46 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
               <>
                 {/* Assigned to */}
                 {(details.assigned_to || hoveredResult.assignedTo) && (
-                  <div className="flex items-center gap-1.5">
-                    <User size={10} className="text-[#555] flex-shrink-0" />
-                    <span className="text-[10px] text-[#888]">
+                  <div className="flex items-center gap-2">
+                    <User size={11} className="text-[#777] flex-shrink-0" />
+                    <span className="text-[11px] text-[#c0c0c0]">
                       {details.assigned_to || hoveredResult.assignedTo}
                     </span>
                   </div>
                 )}
 
                 {/* Priority + Story Points inline */}
-                <div className="flex items-center gap-3">
-                  {details.priority != null && (
-                    <div className="flex items-center gap-1">
-                      <AlertCircle size={10} className="flex-shrink-0" style={{ color: PRIORITY_COLORS[details.priority] || '#888' }} />
-                      <span className="text-[10px]" style={{ color: PRIORITY_COLORS[details.priority] || '#888' }}>
-                        {PRIORITY_LABELS[details.priority] || `P${details.priority}`}
-                      </span>
-                    </div>
-                  )}
-                  {details.story_points != null && (
-                    <div className="flex items-center gap-1">
-                      <Layers size={10} className="text-[#555]" />
-                      <span className="text-[10px] text-[#888]">{details.story_points} pts</span>
-                    </div>
-                  )}
-                </div>
+                {(details.priority != null || details.story_points != null) && (
+                  <div className="flex items-center gap-4">
+                    {details.priority != null && (
+                      <div className="flex items-center gap-1.5">
+                        <AlertCircle size={11} className="flex-shrink-0" style={{ color: PRIORITY_COLORS[details.priority] || '#aaa' }} />
+                        <span className="text-[11px] font-medium" style={{ color: PRIORITY_COLORS[details.priority] || '#aaa' }}>
+                          {PRIORITY_LABELS[details.priority] || `P${details.priority}`}
+                        </span>
+                      </div>
+                    )}
+                    {details.story_points != null && (
+                      <div className="flex items-center gap-1.5">
+                        <Layers size={11} className="text-[#777]" />
+                        <span className="text-[11px] text-[#c0c0c0]">{details.story_points} pts</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Iteration */}
                 {details.iteration_path && (
-                  <p className="text-[10px] text-[#555] truncate">
-                    {details.iteration_path.split('\\').pop()}
+                  <p className="text-[11px] text-[#999] truncate">
+                    📅 {details.iteration_path.split('\\').pop()}
                   </p>
                 )}
 
                 {/* Description snippet */}
                 {details.description && (
-                  <p className="text-[10px] text-[#666] leading-relaxed line-clamp-3 mt-0.5">
-                    {stripHtml(details.description).slice(0, 200)}
-                    {stripHtml(details.description).length > 200 ? '…' : ''}
+                  <p className="text-[11px] text-[#b0b0b0] leading-relaxed line-clamp-3 mt-0.5 border-t border-[#363636] pt-2">
+                    {stripHtml(details.description).slice(0, 220)}
+                    {stripHtml(details.description).length > 220 ? '…' : ''}
                   </p>
                 )}
               </>
@@ -345,20 +347,20 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
           </div>
 
           {/* Footer actions */}
-          <div className="flex items-center gap-2 px-3 py-2 border-t border-[#282828] bg-[#161616]">
+          <div className="flex items-center border-t border-[#363636] bg-[#1c1c1c]">
             <button
               onClick={() => openTab({ entityType: 'work-item', entityId: String(hoveredResult.id), title: `#${hoveredResult.id}` })}
-              className="flex-1 text-center text-[11px] text-[#aaa] hover:text-white transition-colors py-0.5"
+              className="flex-1 text-center text-[11px] font-medium text-[#c0c0c0] hover:text-white hover:bg-[#2a2a2a] transition-all py-2"
             >
               Open in app
             </button>
-            <div className="w-px h-3 bg-[#2a2a2a]" />
+            <div className="w-px h-5 bg-[#363636]" />
             <button
               onClick={() => window.api?.shell.openExternal(hoveredResult.url)}
-              className="flex items-center gap-1 text-[11px] text-[#aaa] hover:text-white transition-colors py-0.5"
+              className="flex items-center gap-1.5 text-[11px] font-medium text-[#c0c0c0] hover:text-white hover:bg-[#2a2a2a] transition-all py-2 px-3"
             >
-              <ExternalLink size={10} />
-              ADO
+              <ExternalLink size={11} />
+              Open in ADO
             </button>
           </div>
         </div>
