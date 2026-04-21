@@ -39,6 +39,7 @@ declare global {
         toggleDone: (id: string) => Promise<any>
         delete: (id: string) => Promise<any>
         getLinks: (id: string) => Promise<any[]>
+        getLinkedEntities: (itemNumber: string) => Promise<any[]>
       }
       code: {
         getAll: () => Promise<any[]>

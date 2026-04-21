@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   RefreshCw, ExternalLink, User, GitBranch, Tag, Layers,
-  AlertCircle, CheckCircle, Clock, Loader, ChevronRight
+  AlertCircle, CheckCircle, Clock, Loader, ChevronRight,
+  FileText, Code2, Workflow
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import type { EntityType } from '../../store/appStore'
 
 interface CachedWorkItem {
   id: string
@@ -90,12 +92,26 @@ function HtmlBlock({ html, label }: { html: string; label: string }): React.JSX.
   )
 }
 
+interface LinkedEntity {
+  entityType: EntityType
+  entityId: string
+  title: string
+}
+
+const ENTITY_ICONS: Record<EntityType, React.ReactNode> = {
+  note: <FileText size={11} />,
+  code: <Code2 size={11} />,
+  flow: <Workflow size={11} />,
+  'work-item': null,
+}
+
 export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.Element {
   const { updateTabTitle, openTab } = useAppStore()
   const [item, setItem] = useState<CachedWorkItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [linkedEntities, setLinkedEntities] = useState<LinkedEntity[]>([])
 
   const load = useCallback(async (force = false) => {
     try {
@@ -118,7 +134,9 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
     setLoading(true)
     setError('')
     setItem(null)
+    setLinkedEntities([])
     load(false)
+    window.api?.workItems.getLinkedEntities(adoId).then(setLinkedEntities).catch(() => {})
   }, [adoId])
 
   const handleRefresh = async (): Promise<void> => {
@@ -311,6 +329,31 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
             {/* Empty state */}
             {!item.description && !item.acceptance_criteria && (
               <p className="text-sm text-[#444] text-center py-4">No description provided.</p>
+            )}
+
+            {/* Linked entities */}
+            {linkedEntities.length > 0 && (
+              <>
+                <div className="border-t border-[#252525]" />
+                <section>
+                  <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-3">Linked In Codex</h3>
+                  <div className="flex flex-col gap-1.5">
+                    {linkedEntities.map((e, i) => (
+                      <button
+                        key={i}
+                        onClick={() => openTab({ entityType: e.entityType, entityId: e.entityId, title: e.title })}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#404040] hover:text-accent transition-all text-left group"
+                      >
+                        <span className="text-[#555] group-hover:text-accent transition-colors flex-shrink-0">
+                          {ENTITY_ICONS[e.entityType] || <FileText size={11} />}
+                        </span>
+                        <span className="text-[10px] text-[#555] capitalize flex-shrink-0">{e.entityType}</span>
+                        <span className="text-xs text-[#ccc] group-hover:text-accent transition-colors truncate">{e.title || 'Untitled'}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </>
             )}
 
           </div>

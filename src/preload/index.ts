@@ -28,7 +28,8 @@ const api = {
       ipcRenderer.invoke('workItems:unlink', workItemId, entityType, entityId),
     toggleDone: (id: string) => ipcRenderer.invoke('workItems:toggleDone', id),
     delete: (id: string) => ipcRenderer.invoke('workItems:delete', id),
-    getLinks: (id: string) => ipcRenderer.invoke('workItems:getLinks', id)
+    getLinks: (id: string) => ipcRenderer.invoke('workItems:getLinks', id),
+    getLinkedEntities: (itemNumber: string) => ipcRenderer.invoke('workItems:getLinkedEntities', itemNumber)
   },
 
   // Code Blocks

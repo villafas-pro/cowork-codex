@@ -177,9 +177,13 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     if (!target) return
     const item = await window.api?.workItems.create(target, 'note', noteId)
     if (item) {
-      setWorkItems((prev) => [...prev, item])
       setNewItemUrl('')
       setShowAddItem(false)
+      // Fetch ADO cache first so the list shows enriched data immediately
+      if (target.includes('dev.azure.com')) {
+        await window.api?.ado.fetchWorkItem(parseInt(item.item_number, 10)).catch(() => {})
+      }
+      await loadWorkItems()
     }
   }
 

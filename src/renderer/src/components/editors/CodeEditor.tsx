@@ -113,9 +113,12 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     if (!target) return
     const item = await window.api?.workItems.create(target, 'code', blockId)
     if (item) {
-      setWorkItems((prev) => [...prev, item])
       setNewItemUrl('')
       setShowAddItem(false)
+      if (target.includes('dev.azure.com')) {
+        await window.api?.ado.fetchWorkItem(parseInt(item.item_number, 10)).catch(() => {})
+      }
+      await loadWorkItems()
     }
   }
 

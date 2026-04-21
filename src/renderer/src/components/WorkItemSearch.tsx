@@ -25,6 +25,7 @@ interface CachedDetails {
 interface Props {
   onAdd: (url: string, itemNumber: string) => void
   onCancel?: () => void
+  placeholder?: string
 }
 
 const WORK_ITEM_TYPES = ['', 'Bug', 'Task', 'User Story', 'Feature', 'Epic', 'Test Case']
@@ -58,7 +59,7 @@ function stripHtml(html: string): string {
 
 const POPUP_WIDTH = 288
 
-export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
+export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX.Element {
   const { openTab } = useAppStore()
   const [search, setSearch] = useState('')
   const [assignedToMe, setAssignedToMe] = useState(false)
@@ -167,7 +168,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="ID or title..."
+            placeholder={placeholder || "ID or title..."}
             className="flex-1 bg-transparent text-xs text-[#e5e5e5] placeholder-[#444] outline-none focus:outline-none py-1.5"
           />
           {loading

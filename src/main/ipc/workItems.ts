@@ -4,7 +4,7 @@ import { getDb } from '../db'
 import type { WorkItem } from '@shared/types'
 
 export function registerWorkItemHandlers(): void {
-  // Get all work items (enriched with cached ADO data)
+  // Get all work items that are linked to at least one entity (enriched with cached ADO data)
   ipcMain.handle('workItems:getAll', () => {
     const db = getDb()
     return db.prepare(`
@@ -17,6 +17,7 @@ export function registerWorkItemHandlers(): void {
         cwi.assigned_to as cached_assigned_to
       FROM work_items wi
       LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
+      WHERE EXISTS (SELECT 1 FROM work_item_links wil WHERE wil.work_item_id = wi.id)
       ORDER BY wi.created_at DESC
     `).all()
   })
@@ -115,6 +116,34 @@ export function registerWorkItemHandlers(): void {
   ipcMain.handle('workItems:getLinks', (_, id: string) => {
     const db = getDb()
     return db.prepare('SELECT * FROM work_item_links WHERE work_item_id = ?').all(id)
+  })
+
+  // Get linked entities (notes/code/flows) for a work item by item_number
+  ipcMain.handle('workItems:getLinkedEntities', (_, itemNumber: string) => {
+    const db = getDb()
+    // Find the work_item id(s) for this item_number
+    const items = db.prepare('SELECT id FROM work_items WHERE item_number = ?').all(itemNumber) as { id: string }[]
+    if (items.length === 0) return []
+
+    const results: { entityType: string; entityId: string; title: string }[] = []
+    for (const wi of items) {
+      const links = db.prepare('SELECT entity_type, entity_id FROM work_item_links WHERE work_item_id = ?').all(wi.id) as { entity_type: string; entity_id: string }[]
+      for (const link of links) {
+        let title = ''
+        if (link.entity_type === 'note') {
+          const row = db.prepare('SELECT title FROM notes WHERE id = ?').get(link.entity_id) as { title: string } | undefined
+          title = row?.title || 'Untitled'
+        } else if (link.entity_type === 'code') {
+          const row = db.prepare('SELECT title FROM code_blocks WHERE id = ?').get(link.entity_id) as { title: string } | undefined
+          title = row?.title || 'Untitled'
+        } else if (link.entity_type === 'flow') {
+          const row = db.prepare('SELECT title FROM flows WHERE id = ?').get(link.entity_id) as { title: string } | undefined
+          title = row?.title || 'Untitled'
+        }
+        results.push({ entityType: link.entity_type, entityId: link.entity_id, title })
+      }
+    }
+    return results
   })
 }
 

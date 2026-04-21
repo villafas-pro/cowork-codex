@@ -293,9 +293,12 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     if (!target) return
     const item = await window.api?.workItems.create(target, 'flow', flowId)
     if (item) {
-      setWorkItems((prev) => [...prev, item])
       setNewItemUrl('')
       setShowAddItem(false)
+      if (target.includes('dev.azure.com')) {
+        await window.api?.ado.fetchWorkItem(parseInt(item.item_number, 10)).catch(() => {})
+      }
+      await loadWorkItems()
     }
   }
 

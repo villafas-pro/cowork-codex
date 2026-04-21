@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { CheckSquare, Square, ExternalLink, Clipboard, Link2 } from 'lucide-react'
+import { CheckSquare, Square, ExternalLink, Link2, FileText, Code2, Workflow, Plus } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
+import WorkItemSearch from '../components/WorkItemSearch'
 
 interface WorkItem {
   id: string
@@ -22,29 +23,33 @@ const TYPE_COLORS: Record<string, string> = {
 
 const STATE_COLORS: Record<string, string> = {
   'Active': '#007acc', 'In Progress': '#007acc', 'New': '#888',
-  'Resolved': '#009933', 'Done': '#009933', 'Closed': '#555',
+  'Resolved': '#009933', 'Done': '#009933', 'Closed': '#555', 'Removed': '#555',
+}
+
+const DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
+
+function effectiveDone(item: WorkItem): boolean {
+  if (item.is_ado && item.cached_state) return DONE_STATES.has(item.cached_state)
+  return !!item.is_done
 }
 
 export default function WorkItems(): React.JSX.Element {
   const { openTab } = useAppStore()
   const [items, setItems] = useState<WorkItem[]>([])
   const [filter, setFilter] = useState<'all' | 'open' | 'done'>('all')
+  const [adoConfigured, setAdoConfigured] = useState(false)
+  // Track which card is showing create-entity actions
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [creating, setCreating] = useState<string | null>(null)
 
   useEffect(() => {
     loadItems()
+    window.api?.ado.isConfigured().then(setAdoConfigured)
   }, [])
 
   async function loadItems(): Promise<void> {
     const all: WorkItem[] = (await window.api?.workItems.getAll()) || []
     setItems(all)
-  }
-
-  async function pasteFromClipboard(): Promise<void> {
-    const text = await navigator.clipboard.readText()
-    if (text.trim()) {
-      const item = await window.api?.workItems.create(text.trim())
-      if (item) setItems((prev) => [item, ...prev])
-    }
   }
 
   async function toggleDone(id: string): Promise<void> {
@@ -64,14 +69,37 @@ export default function WorkItems(): React.JSX.Element {
     }
   }
 
+  async function createLinked(item: WorkItem, entityType: 'note' | 'code' | 'flow'): Promise<void> {
+    const title = item.cached_title || `#${item.item_number}`
+    setCreating(item.id + entityType)
+    try {
+      let entity: any
+      if (entityType === 'note') {
+        entity = await window.api?.notes.create({ title })
+      } else if (entityType === 'code') {
+        entity = await window.api?.code.create({ title })
+      } else {
+        entity = await window.api?.flows.create({ title })
+      }
+      if (entity) {
+        await window.api?.workItems.link(item.id, entityType, entity.id)
+        openTab({ entityType, entityId: entity.id, title })
+      }
+    } finally {
+      setCreating(null)
+      setExpandedId(null)
+    }
+  }
+
   const filtered = items.filter((i) => {
-    if (filter === 'open') return !i.is_done
-    if (filter === 'done') return i.is_done
+    const done = effectiveDone(i)
+    if (filter === 'open') return !done
+    if (filter === 'done') return done
     return true
   })
 
-  const openCount = items.filter((i) => !i.is_done).length
-  const doneCount = items.filter((i) => i.is_done).length
+  const openCount = items.filter((i) => !effectiveDone(i)).length
+  const doneCount = items.filter((i) => effectiveDone(i)).length
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -86,15 +114,19 @@ export default function WorkItems(): React.JSX.Element {
             </span>
           )}
         </div>
-        <button
-          onClick={pasteFromClipboard}
-          title="Paste URL from clipboard"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#383838] text-xs text-[#aaa] hover:text-white hover:border-[#555] transition-all"
-        >
-          <Clipboard size={12} />
-          Paste link
-        </button>
       </div>
+
+      {/* Search bar (ADO search to open items) */}
+      {adoConfigured && (
+        <div className="px-5 py-3 border-b border-[#282828] flex-shrink-0">
+          <WorkItemSearch
+            onAdd={(_url, itemNumber) => {
+              openTab({ entityType: 'work-item', entityId: itemNumber, title: `#${itemNumber}` })
+            }}
+            placeholder="Search ADO work items..."
+          />
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex gap-1 px-5 pt-3 pb-1 flex-shrink-0">
@@ -124,93 +156,124 @@ export default function WorkItems(): React.JSX.Element {
               {filter === 'done' ? 'No completed items' : filter === 'open' ? 'No open items' : 'No work items yet'}
             </p>
             {filter === 'all' && (
-              <p className="text-xs text-[#444]">Paste an Azure DevOps URL to add one</p>
+              <p className="text-xs text-[#444]">Link an Azure DevOps item from a note, code block, or flow to see it here</p>
             )}
           </div>
         ) : (
           <div className="flex flex-col gap-1.5">
-            {filtered.map((item) => (
-              <div
-                key={item.id}
-                className={`flex items-start gap-3 p-3 rounded-xl border transition-all group ${
-                  item.is_done
-                    ? 'bg-[#161616] border-[#282828] opacity-50'
-                    : 'bg-[#1e1e1e] border-[#303030] hover:border-[#404040]'
-                }`}
-              >
-                {/* Checkbox */}
-                <button
-                  onClick={() => toggleDone(item.id)}
-                  className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5"
+            {filtered.map((item) => {
+              const done = effectiveDone(item)
+              const isExpanded = expandedId === item.id
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-xl border transition-all ${
+                    done
+                      ? 'bg-[#161616] border-[#282828] opacity-50'
+                      : 'bg-[#1e1e1e] border-[#303030] hover:border-[#404040]'
+                  }`}
                 >
-                  {item.is_done
-                    ? <CheckSquare size={15} className="text-accent" />
-                    : <Square size={15} />
-                  }
-                </button>
+                  <div className="flex items-start gap-3 p-3">
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => toggleDone(item.id)}
+                      className="flex-shrink-0 text-[#555] hover:text-accent transition-colors mt-0.5"
+                    >
+                      {done
+                        ? <CheckSquare size={15} className="text-accent" />
+                        : <Square size={15} />
+                      }
+                    </button>
 
-                {/* Content */}
-                <button
-                  onClick={() => handleOpen(item)}
-                  className="flex-1 text-left min-w-0 group/title"
-                >
-                  {item.cached_title ? (
-                    <>
-                      {/* Type badge + state */}
-                      <div className="flex items-center gap-2 mb-1">
-                        {item.cached_type && (
-                          <span
-                            className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                            style={{
-                              background: (TYPE_COLORS[item.cached_type] || '#555') + '22',
-                              color: TYPE_COLORS[item.cached_type] || '#aaa',
-                              border: `1px solid ${(TYPE_COLORS[item.cached_type] || '#555')}44`,
-                            }}
-                          >
-                            {item.cached_type}
-                          </span>
-                        )}
-                        {item.cached_state && (
-                          <span
-                            className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                            style={{
-                              color: STATE_COLORS[item.cached_state] || '#888',
-                            }}
-                          >
-                            {item.cached_state}
-                          </span>
-                        )}
-                        <span className="text-[10px] text-[#444] ml-auto">#{item.item_number}</span>
-                      </div>
-
-                      {/* Title */}
-                      <p className={`text-sm leading-snug group-hover/title:text-accent transition-colors ${item.is_done ? 'line-through text-[#555]' : 'text-[#e0e0e0]'}`}>
-                        {item.cached_title}
-                      </p>
-
-                      {/* Assignee */}
-                      {item.cached_assigned_to && (
-                        <p className="text-[11px] text-[#555] mt-1">{item.cached_assigned_to}</p>
+                    {/* Content */}
+                    <button
+                      onClick={() => handleOpen(item)}
+                      className="flex-1 text-left min-w-0 group/title"
+                    >
+                      {item.cached_title ? (
+                        <>
+                          <div className="flex items-center gap-2 mb-1">
+                            {item.cached_type && (
+                              <span
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                                style={{
+                                  background: (TYPE_COLORS[item.cached_type] || '#555') + '22',
+                                  color: TYPE_COLORS[item.cached_type] || '#aaa',
+                                  border: `1px solid ${(TYPE_COLORS[item.cached_type] || '#555')}44`,
+                                }}
+                              >
+                                {item.cached_type}
+                              </span>
+                            )}
+                            {item.cached_state && (
+                              <span
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                                style={{ color: STATE_COLORS[item.cached_state] || '#888' }}
+                              >
+                                {item.cached_state}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-[#444] ml-auto">#{item.item_number}</span>
+                          </div>
+                          <p className={`text-sm leading-snug group-hover/title:text-accent transition-colors ${done ? 'line-through text-[#555]' : 'text-[#e0e0e0]'}`}>
+                            {item.cached_title}
+                          </p>
+                          {item.cached_assigned_to && (
+                            <p className="text-[11px] text-[#555] mt-1">{item.cached_assigned_to}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className={`text-sm group-hover/title:text-accent transition-colors ${done ? 'line-through text-[#555]' : 'text-[#ccc]'}`}>
+                          #{item.item_number}
+                        </p>
                       )}
-                    </>
-                  ) : (
-                    /* Non-ADO or not yet cached */
-                    <p className={`text-sm group-hover/title:text-accent transition-colors ${item.is_done ? 'line-through text-[#555]' : 'text-[#ccc]'}`}>
-                      #{item.item_number}
-                    </p>
-                  )}
-                </button>
+                    </button>
 
-                {/* External link */}
-                <button
-                  onClick={() => window.api?.shell.openExternal(item.url)}
-                  title="Open in ADO"
-                  className="flex-shrink-0 text-[#333] group-hover:text-[#666] hover:!text-[#aaa] transition-colors mt-0.5 p-0.5"
-                >
-                  <ExternalLink size={13} />
-                </button>
-              </div>
-            ))}
+                    {/* Actions */}
+                    <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                      {/* Create-linked toggle */}
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                        title="Create linked note/code/flow"
+                        className={`p-1 rounded transition-all ${isExpanded ? 'text-accent bg-[#252525]' : 'text-[#333] hover:text-[#666]'}`}
+                      >
+                        <Plus size={13} />
+                      </button>
+                      {/* External link */}
+                      <button
+                        onClick={() => window.api?.shell.openExternal(item.url)}
+                        title="Open in ADO"
+                        className="p-1 rounded text-[#333] hover:text-[#666] transition-colors"
+                      >
+                        <ExternalLink size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Create-entity actions panel */}
+                  {isExpanded && (
+                    <div className="flex items-center gap-1.5 px-3 pb-3 pt-0">
+                      <span className="text-[10px] text-[#555] mr-1">Create linked:</span>
+                      {[
+                        { type: 'note' as const, label: 'Note', Icon: FileText },
+                        { type: 'code' as const, label: 'Code', Icon: Code2 },
+                        { type: 'flow' as const, label: 'Flow', Icon: Workflow },
+                      ].map(({ type, label, Icon }) => (
+                        <button
+                          key={type}
+                          onClick={() => createLinked(item, type)}
+                          disabled={creating === item.id + type}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border border-[#383838] text-[#aaa] hover:text-white hover:border-[#555] transition-all disabled:opacity-40"
+                        >
+                          <Icon size={10} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
