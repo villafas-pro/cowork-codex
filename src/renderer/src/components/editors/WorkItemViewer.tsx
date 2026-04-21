@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import {
   RefreshCw, ExternalLink, User, GitBranch, Tag, Layers,
   AlertCircle, CheckCircle, Clock, Loader, ChevronRight,
-  FileText, Code2, Workflow
+  FileText, Code2, Workflow, Link2
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import type { EntityType } from '../../store/appStore'
@@ -331,34 +331,41 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
               <p className="text-sm text-[#444] text-center py-4">No description provided.</p>
             )}
 
-            {/* Linked entities */}
-            {linkedEntities.length > 0 && (
-              <>
-                <div className="border-t border-[#252525]" />
-                <section>
-                  <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-3">Linked In Codex</h3>
-                  <div className="flex flex-col gap-1.5">
-                    {linkedEntities.map((e, i) => (
-                      <button
-                        key={i}
-                        onClick={() => openTab({ entityType: e.entityType, entityId: e.entityId, title: e.title })}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#404040] hover:text-accent transition-all text-left group"
-                      >
-                        <span className="text-[#555] group-hover:text-accent transition-colors flex-shrink-0">
-                          {ENTITY_ICONS[e.entityType] || <FileText size={11} />}
-                        </span>
-                        <span className="text-[10px] text-[#555] capitalize flex-shrink-0">{e.entityType}</span>
-                        <span className="text-xs text-[#ccc] group-hover:text-accent transition-colors truncate">{e.title || 'Untitled'}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              </>
-            )}
-
           </div>
         </div>
       </div>
+
+      {/* Right panel — Linked In Codex */}
+      <div className="w-56 flex-shrink-0 border-l border-[#303030] bg-[#111111] flex flex-col">
+        <div className="flex items-center gap-1.5 px-3 py-3 border-b border-[#282828]">
+          <Link2 size={12} className="text-[#666]" />
+          <span className="text-xs text-[#888] font-medium uppercase tracking-wide">Linked In Codex</span>
+        </div>
+        <div className="flex-1 overflow-y-auto py-1">
+          {linkedEntities.length === 0 ? (
+            <p className="text-xs text-[#333] text-center py-6">Not linked to anything</p>
+          ) : (
+            linkedEntities.map((e, i) => (
+              <button
+                key={i}
+                onClick={() => openTab({ entityType: e.entityType, entityId: e.entityId, title: e.title })}
+                className="w-full flex items-start gap-2 px-3 py-2 hover:bg-[#1a1a1a] transition-all text-left group"
+              >
+                <span className="text-[#555] group-hover:text-accent transition-colors flex-shrink-0 mt-0.5">
+                  {ENTITY_ICONS[e.entityType] || <FileText size={11} />}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-[#ddd] group-hover:text-accent transition-colors truncate leading-snug">
+                    {e.title || 'Untitled'}
+                  </p>
+                  <p className="text-[10px] text-[#555] capitalize mt-0.5">{e.entityType}</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
     </div>
   )
 }
