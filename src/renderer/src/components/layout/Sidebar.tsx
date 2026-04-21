@@ -18,8 +18,19 @@ export default function Sidebar(): React.JSX.Element {
   return (
     <aside className="flex flex-col w-[52px] h-full bg-th-bg-0 border-r border-th-bd-2 py-3 items-center titlebar-no-drag flex-shrink-0">
       {/* Logo */}
-      <div className="mb-5 w-8 h-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
-        <span className="text-white font-bold text-sm">CC</span>
+      <div className="mb-5 flex-shrink-0">
+        <svg width="32" height="32" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="128" height="128" rx="22" fill="#141414"/>
+          <rect x="26" y="17" width="62" height="76" rx="5" fill="#2c2c2c" transform="rotate(-7 56 55)"/>
+          <path d="M 36 23 L 84 23 L 104 43 L 104 113 L 36 113 Z" fill="#202020"/>
+          <path d="M 84 23 L 104 43 L 84 43 Z" fill="#e8b800"/>
+          <line x1="84" y1="23" x2="104" y2="43" stroke="#0d0d0d" strokeWidth="1.5" opacity="0.5"/>
+          <path d="M 54 51 L 48 57 L 54 63" stroke="#e8b800" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <line x1="58" y1="57" x2="92" y2="57" stroke="#2e2e2e" strokeWidth="3" strokeLinecap="round"/>
+          <line x1="48" y1="70" x2="92" y2="70" stroke="#272727" strokeWidth="3" strokeLinecap="round"/>
+          <line x1="48" y1="83" x2="78" y2="83" stroke="#2e2e2e" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M 81 78 L 87 83 L 81 88" stroke="#e8b800" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        </svg>
       </div>
 
       {/* Nav items */}
