@@ -112,6 +112,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [linkedEntities, setLinkedEntities] = useState<LinkedEntity[]>([])
+  const [creating, setCreating] = useState<string | null>(null)
 
   const load = useCallback(async (force = false) => {
     try {
@@ -138,6 +139,32 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
     load(false)
     window.api?.workItems.getLinkedEntities(adoId).then(setLinkedEntities).catch(() => {})
   }, [adoId])
+
+  async function reloadLinkedEntities(): Promise<void> {
+    const entities = await window.api?.workItems.getLinkedEntities(adoId).catch(() => [])
+    setLinkedEntities(entities || [])
+  }
+
+  async function createLinked(entityType: 'note' | 'code' | 'flow'): Promise<void> {
+    const title = item?.title || `#${adoId}`
+    setCreating(entityType)
+    try {
+      let entity: any
+      if (entityType === 'note') entity = await window.api?.notes.create({ title })
+      else if (entityType === 'code') entity = await window.api?.code.create({ title })
+      else entity = await window.api?.flows.create({ title })
+      if (entity) {
+        // Find the work_item row by item_number — create one if it doesn't exist yet
+        let wi = await window.api?.workItems.findByItemNumber(adoId)
+        if (!wi) wi = await window.api?.workItems.create(item?.ado_url || adoId)
+        if (wi) await window.api?.workItems.link(wi.id, entityType, entity.id)
+        await reloadLinkedEntities()
+        openTab({ entityType, entityId: entity.id, title })
+      }
+    } finally {
+      setCreating(null)
+    }
+  }
 
   const handleRefresh = async (): Promise<void> => {
     setRefreshing(true)
@@ -339,7 +366,25 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
       <div className="w-56 flex-shrink-0 border-l border-[#303030] bg-[#111111] flex flex-col">
         <div className="flex items-center gap-1.5 px-3 py-3 border-b border-[#282828]">
           <Link2 size={12} className="text-[#666]" />
-          <span className="text-xs text-[#888] font-medium uppercase tracking-wide">Linked In Codex</span>
+          <span className="text-xs text-[#888] font-medium uppercase tracking-wide flex-1">Linked In Codex</span>
+          {([
+            { type: 'note' as const, Icon: FileText, label: 'New note' },
+            { type: 'code' as const, Icon: Code2, label: 'New code block' },
+            { type: 'flow' as const, Icon: Workflow, label: 'New flow' },
+          ]).map(({ type, Icon, label }) => (
+            <button
+              key={type}
+              onClick={() => createLinked(type)}
+              disabled={creating !== null}
+              title={label}
+              className="p-1 rounded text-[#555] hover:text-[#bbb] hover:bg-[#222] transition-all disabled:opacity-40"
+            >
+              {creating === type
+                ? <Loader size={11} className="animate-spin" />
+                : <Icon size={11} />
+              }
+            </button>
+          ))}
         </div>
         <div className="flex-1 overflow-y-auto py-1">
           {linkedEntities.length === 0 ? (

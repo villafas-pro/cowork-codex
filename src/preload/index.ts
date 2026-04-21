@@ -29,7 +29,8 @@ const api = {
     toggleDone: (id: string) => ipcRenderer.invoke('workItems:toggleDone', id),
     delete: (id: string) => ipcRenderer.invoke('workItems:delete', id),
     getLinks: (id: string) => ipcRenderer.invoke('workItems:getLinks', id),
-    getLinkedEntities: (itemNumber: string) => ipcRenderer.invoke('workItems:getLinkedEntities', itemNumber)
+    getLinkedEntities: (itemNumber: string) => ipcRenderer.invoke('workItems:getLinkedEntities', itemNumber),
+    findByItemNumber: (itemNumber: string) => ipcRenderer.invoke('workItems:findByItemNumber', itemNumber)
   },
 
   // Code Blocks

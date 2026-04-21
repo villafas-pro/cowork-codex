@@ -118,6 +118,12 @@ export function registerWorkItemHandlers(): void {
     return db.prepare('SELECT * FROM work_item_links WHERE work_item_id = ?').all(id)
   })
 
+  // Find a work item row by item_number (returns first match or null)
+  ipcMain.handle('workItems:findByItemNumber', (_, itemNumber: string) => {
+    const db = getDb()
+    return db.prepare('SELECT * FROM work_items WHERE item_number = ? LIMIT 1').get(itemNumber) || null
+  })
+
   // Get linked entities (notes/code/flows) for a work item by item_number
   ipcMain.handle('workItems:getLinkedEntities', (_, itemNumber: string) => {
     const db = getDb()

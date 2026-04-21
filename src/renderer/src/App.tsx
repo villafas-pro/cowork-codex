@@ -40,6 +40,7 @@ declare global {
         delete: (id: string) => Promise<any>
         getLinks: (id: string) => Promise<any[]>
         getLinkedEntities: (itemNumber: string) => Promise<any[]>
+        findByItemNumber: (itemNumber: string) => Promise<any | null>
       }
       code: {
         getAll: () => Promise<any[]>
