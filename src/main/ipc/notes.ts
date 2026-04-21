@@ -21,10 +21,14 @@ export function registerNoteHandlers(): void {
     const db = getDb()
     const id = uuidv4()
     const now = Date.now()
+    const title = data.title || 'Untitled'
+    const content = data.content || '{}'
     db.prepare(`
       INSERT INTO notes (id, title, content, created_at, updated_at, is_pinned)
       VALUES (?, ?, ?, ?, ?, 0)
-    `).run(id, data.title || 'Untitled', data.content || '{}', now, now)
+    `).run(id, title, content, now, now)
+    // Keep FTS index in sync
+    db.prepare('INSERT OR REPLACE INTO notes_fts(id, title, content) VALUES (?, ?, ?)').run(id, title, content)
     return db.prepare('SELECT * FROM notes WHERE id = ?').get(id)
   })
 

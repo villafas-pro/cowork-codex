@@ -72,29 +72,45 @@ export function registerAppHandlers(): void {
 
   // Global search
   ipcMain.handle('search:global', (_, query: string) => {
+    if (!query.trim()) return []
     const db = getDb()
-    const notes = db.prepare(`
-      SELECT n.id, n.title, n.updated_at, 'note' as type,
-             snippet(notes_fts, 2, '<mark>', '</mark>', '...', 15) as snippet
-      FROM notes_fts
-      JOIN notes n ON notes_fts.id = n.id
-      WHERE notes_fts MATCH ?
-      ORDER BY rank LIMIT 10
-    `).all(`${query}*`)
+    const like = `%${query}%`
+
+    // Notes — try FTS first, fall back to LIKE if it throws (e.g. special chars)
+    let notes: any[] = []
+    try {
+      // Sanitize query for FTS5: remove special characters that cause parse errors
+      const ftsQuery = query.replace(/["()*:^~\-]/g, ' ').trim()
+      if (ftsQuery) {
+        notes = db.prepare(`
+          SELECT n.id, n.title, n.updated_at, 'note' as type,
+                 snippet(notes_fts, 2, '<mark>', '</mark>', '...', 15) as snippet
+          FROM notes_fts
+          JOIN notes n ON notes_fts.id = n.id
+          WHERE notes_fts MATCH ?
+          ORDER BY rank LIMIT 10
+        `).all(`${ftsQuery}*`)
+      }
+    } catch {
+      // FTS failed — fall back to LIKE
+    }
+    if (notes.length === 0) {
+      notes = db.prepare(`
+        SELECT id, title, updated_at, 'note' as type, '' as snippet
+        FROM notes WHERE title LIKE ? OR content LIKE ? LIMIT 10
+      `).all(like, like)
+    }
 
     const code = db.prepare(`
       SELECT id, title, updated_at, 'code' as type, language as snippet
-      FROM code_blocks
-      WHERE title LIKE ? OR content LIKE ?
-      LIMIT 10
-    `).all(`%${query}%`, `%${query}%`)
+      FROM code_blocks WHERE title LIKE ? OR content LIKE ? LIMIT 10
+    `).all(like, like)
 
     const flows = db.prepare(`
       SELECT id, title, updated_at, 'flow' as type, '' as snippet
       FROM flows WHERE title LIKE ? LIMIT 10
-    `).all(`%${query}%`)
+    `).all(like)
 
-    // Search local work_items joined with cached ADO titles/state
     const workItems = db.prepare(`
       SELECT
         wi.item_number as id,
@@ -112,7 +128,7 @@ export function registerAppHandlers(): void {
          OR cwi.assigned_to LIKE ?
          OR cwi.type LIKE ?
       LIMIT 10
-    `).all(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`)
+    `).all(like, like, like, like)
 
     return [...notes, ...code, ...flows, ...workItems]
   })

@@ -164,6 +164,13 @@ export function initializeSchema(db: Database.Database): void {
     INSERT OR IGNORE INTO todo_content (id, content) VALUES (1, '{}');
   `)
 
+  // Backfill FTS index for any notes not yet indexed
+  db.prepare(`
+    INSERT OR IGNORE INTO notes_fts(id, title, content)
+    SELECT id, title, content FROM notes
+    WHERE id NOT IN (SELECT id FROM notes_fts)
+  `).run()
+
   // Prune links whose target entity no longer exists
   db.prepare(`
     DELETE FROM work_item_links
