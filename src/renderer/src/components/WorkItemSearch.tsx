@@ -287,63 +287,71 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
             {hoveredResult.title}
           </p>
 
-          {/* Details area */}
-          <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#363636] pt-2.5">
-            {detailsLoading && !details && (
-              <div className="flex items-center gap-1.5 py-1">
-                <Loader size={10} className="text-[#888] animate-spin" />
-                <span className="text-[11px] text-[#888]">Loading details…</span>
-              </div>
-            )}
+          {/* Details area — animates height as content loads */}
+          <div
+            className="overflow-hidden"
+            style={{
+              maxHeight: details ? '320px' : detailsLoading ? '48px' : '0px',
+              transition: 'max-height 0.25s ease',
+            }}
+          >
+            <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#363636] pt-2.5">
+              {detailsLoading && !details && (
+                <div className="flex items-center gap-1.5 py-1">
+                  <Loader size={10} className="text-[#888] animate-spin" />
+                  <span className="text-[11px] text-[#888]">Loading details…</span>
+                </div>
+              )}
 
-            {details && (
-              <>
-                {/* Assigned to */}
-                {(details.assigned_to || hoveredResult.assignedTo) && (
-                  <div className="flex items-center gap-2">
-                    <User size={11} className="text-[#777] flex-shrink-0" />
-                    <span className="text-[11px] text-[#c0c0c0]">
-                      {details.assigned_to || hoveredResult.assignedTo}
-                    </span>
-                  </div>
-                )}
+              {details && (
+                <>
+                  {/* Assigned to */}
+                  {(details.assigned_to || hoveredResult.assignedTo) && (
+                    <div className="flex items-center gap-2">
+                      <User size={11} className="text-[#777] flex-shrink-0" />
+                      <span className="text-[11px] text-[#c0c0c0]">
+                        {details.assigned_to || hoveredResult.assignedTo}
+                      </span>
+                    </div>
+                  )}
 
-                {/* Priority + Story Points inline */}
-                {(details.priority != null || details.story_points != null) && (
-                  <div className="flex items-center gap-4">
-                    {details.priority != null && (
-                      <div className="flex items-center gap-1.5">
-                        <AlertCircle size={11} className="flex-shrink-0" style={{ color: PRIORITY_COLORS[details.priority] || '#aaa' }} />
-                        <span className="text-[11px] font-medium" style={{ color: PRIORITY_COLORS[details.priority] || '#aaa' }}>
-                          {PRIORITY_LABELS[details.priority] || `P${details.priority}`}
-                        </span>
-                      </div>
-                    )}
-                    {details.story_points != null && (
-                      <div className="flex items-center gap-1.5">
-                        <Layers size={11} className="text-[#777]" />
-                        <span className="text-[11px] text-[#c0c0c0]">{details.story_points} pts</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {/* Priority + Story Points inline */}
+                  {(details.priority != null || details.story_points != null) && (
+                    <div className="flex items-center gap-4">
+                      {details.priority != null && (
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle size={11} className="flex-shrink-0" style={{ color: PRIORITY_COLORS[details.priority] || '#aaa' }} />
+                          <span className="text-[11px] font-medium" style={{ color: PRIORITY_COLORS[details.priority] || '#aaa' }}>
+                            {PRIORITY_LABELS[details.priority] || `P${details.priority}`}
+                          </span>
+                        </div>
+                      )}
+                      {details.story_points != null && (
+                        <div className="flex items-center gap-1.5">
+                          <Layers size={11} className="text-[#777]" />
+                          <span className="text-[11px] text-[#c0c0c0]">{details.story_points} pts</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {/* Iteration */}
-                {details.iteration_path && (
-                  <p className="text-[11px] text-[#999] truncate">
-                    📅 {details.iteration_path.split('\\').pop()}
-                  </p>
-                )}
+                  {/* Iteration */}
+                  {details.iteration_path && (
+                    <p className="text-[11px] text-[#999] truncate">
+                      📅 {details.iteration_path.split('\\').pop()}
+                    </p>
+                  )}
 
-                {/* Description snippet */}
-                {details.description && (
-                  <p className="text-[11px] text-[#b0b0b0] leading-relaxed line-clamp-3 mt-0.5 border-t border-[#363636] pt-2">
-                    {stripHtml(details.description).slice(0, 220)}
-                    {stripHtml(details.description).length > 220 ? '…' : ''}
-                  </p>
-                )}
-              </>
-            )}
+                  {/* Description snippet */}
+                  {details.description && (
+                    <p className="text-[11px] text-[#b0b0b0] leading-relaxed line-clamp-3 mt-0.5 border-t border-[#363636] pt-2">
+                      {stripHtml(details.description).slice(0, 220)}
+                      {stripHtml(details.description).length > 220 ? '…' : ''}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Footer actions */}
