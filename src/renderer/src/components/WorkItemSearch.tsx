@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Loader, User, Plus, ExternalLink, AlertCircle, Layers } from 'lucide-react'
+import { Search, Loader, User, Plus, ExternalLink, AlertCircle, Layers, X } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 
 interface WorkItemResult {
@@ -171,12 +171,20 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
             placeholder={placeholder || "ID or title..."}
             className="flex-1 bg-transparent text-xs text-[#e5e5e5] placeholder-[#444] outline-none focus:outline-none py-1.5"
           />
-          {loading
-            ? <Loader size={11} className="text-[#555] animate-spin flex-shrink-0" />
-            : <button onClick={doSearch} className="text-[#555] hover:text-accent transition-colors flex-shrink-0">
-                <Search size={11} />
-              </button>
-          }
+          {loading ? (
+            <Loader size={11} className="text-[#555] animate-spin flex-shrink-0" />
+          ) : search ? (
+            <button
+              onClick={() => { setSearch(''); setResults([]); setSearched(false); setError('') }}
+              className="text-[#555] hover:text-[#aaa] transition-colors flex-shrink-0"
+            >
+              <X size={11} />
+            </button>
+          ) : (
+            <button onClick={doSearch} className="text-[#555] hover:text-accent transition-colors flex-shrink-0">
+              <Search size={11} />
+            </button>
+          )}
         </div>
 
         {/* Filters row */}

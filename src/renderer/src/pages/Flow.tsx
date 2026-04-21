@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Search, GitBranch, Pin, Trash2 } from 'lucide-react'
+import { Plus, Search, GitBranch, Pin, Trash2, X } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 
 interface FlowItem {
@@ -128,14 +128,19 @@ export default function Flow(): React.JSX.Element {
       </div>
 
       <div className="px-4 py-2 flex-shrink-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1f1f1f] border border-[#383838] rounded-lg">
-          <Search size={12} className="text-[#777]" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1f1f1f] border border-[#383838] rounded-lg focus-within:border-[#555] transition-colors">
+          <Search size={12} className="text-[#777] flex-shrink-0" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search flows..."
             className="flex-1 bg-transparent text-xs text-[#f0f0f0] placeholder-[#666] outline-none"
           />
+          {search && (
+            <button onClick={() => setSearch('')} className="text-[#555] hover:text-[#aaa] transition-colors flex-shrink-0">
+              <X size={11} />
+            </button>
+          )}
         </div>
       </div>
 
