@@ -253,6 +253,7 @@ export default function WorkItemSearch({ onAdd }: Props): React.JSX.Element {
       {/* Hover popup — rendered via fixed positioning to escape overflow clipping */}
       {hoveredId !== null && hoveredResult && (
         <div
+          key={hoveredId}
           onMouseEnter={handlePopupEnter}
           onMouseLeave={handlePopupLeave}
           style={{
