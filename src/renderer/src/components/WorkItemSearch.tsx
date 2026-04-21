@@ -80,6 +80,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
   const searchRef = useRef<HTMLInputElement>(null)
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     searchRef.current?.focus()
@@ -100,8 +101,29 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
     }
   }
 
+  function scheduleSearch(): void {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => { doSearch() }, 600)
+  }
+
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const val = e.target.value
+    setSearch(val)
+    if (val.trim()) {
+      scheduleSearch()
+    } else {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      setResults([])
+      setSearched(false)
+      setError('')
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent): void {
-    if (e.key === 'Enter') doSearch()
+    if (e.key === 'Enter') {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      doSearch()
+    }
   }
 
   const handleRowEnter = useCallback((item: WorkItemResult, el: HTMLDivElement) => {
@@ -166,7 +188,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
           <input
             ref={searchRef}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={handleSearchChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder || "ID or title..."}
             className="flex-1 bg-transparent text-xs text-[#e5e5e5] placeholder-[#444] outline-none focus:outline-none py-1.5"
@@ -175,7 +197,10 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
             <Loader size={11} className="text-[#555] animate-spin flex-shrink-0" />
           ) : search ? (
             <button
-              onClick={() => { setSearch(''); setResults([]); setSearched(false); setError('') }}
+              onClick={() => {
+                if (debounceTimer.current) clearTimeout(debounceTimer.current)
+                setSearch(''); setResults([]); setSearched(false); setError('')
+              }}
               className="text-[#555] hover:text-[#aaa] transition-colors flex-shrink-0"
             >
               <X size={11} />
