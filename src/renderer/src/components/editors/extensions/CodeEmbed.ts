@@ -27,6 +27,6 @@ export const CodeEmbed = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(CodeEmbedView)
+    return ReactNodeViewRenderer(CodeEmbedView, { stopEvent: () => true })
   },
 })

@@ -27,6 +27,6 @@ export const FlowEmbed = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(FlowEmbedView)
+    return ReactNodeViewRenderer(FlowEmbedView, { stopEvent: () => true })
   },
 })
