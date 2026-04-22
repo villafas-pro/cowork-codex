@@ -87,6 +87,7 @@ export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewPr
       <div
         className={`my-3 rounded-lg border overflow-hidden bg-[#1e1e1e] transition-all ${selected ? 'border-accent shadow-[0_0_0_1px_#e8b800]' : 'border-th-bd-2'}`}
         contentEditable={false}
+        onKeyDown={(e) => e.stopPropagation()}
         onClick={() => setShowLangPicker(false)}
       >
         {/* Header */}
@@ -96,7 +97,7 @@ export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewPr
             value={title}
             onChange={handleTitleChange}
             placeholder="Untitled"
-            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             className="flex-1 bg-transparent text-xs text-th-tx-1 placeholder-th-tx-5 outline-none caret-accent min-w-0"
           />
 
@@ -151,6 +152,7 @@ export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewPr
 
         {/* Monaco editor — only rendered once data is loaded */}
         {loaded ? (
+          <div onMouseDown={(e) => e.stopPropagation()}>
           <Editor
             height="200px"
             language={language}
@@ -173,6 +175,7 @@ export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewPr
               scrollbar: { verticalScrollbarSize: 4, horizontalScrollbarSize: 4 },
             }}
           />
+          </div>
         ) : (
           <div className="h-[200px] flex items-center justify-center">
             <span className="text-xs text-th-tx-6">Loading…</span>

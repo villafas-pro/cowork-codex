@@ -167,6 +167,7 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
     <div
       className={`my-3 rounded-lg border overflow-hidden transition-all ${selected ? 'border-accent shadow-[0_0_0_1px_#e8b800]' : 'border-th-bd-2'}`}
       contentEditable={false}
+      onKeyDown={(e) => e.stopPropagation()}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 bg-th-bg-2 border-b border-th-bd-1">
@@ -175,7 +176,8 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
           value={title}
           onChange={handleTitleChange}
           placeholder="Untitled Flow"
-          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
           className="flex-1 bg-transparent text-xs text-th-tx-1 placeholder-th-tx-5 outline-none caret-accent min-w-0"
         />
         <button
@@ -259,7 +261,9 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
                 <input
                   value={editingLabel}
                   onChange={(e) => setEditingLabel(e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => {
+                    e.stopPropagation()
                     if (e.key === 'Enter') commitNodeEdit()
                     if (e.key === 'Escape') setEditingNodeId(null)
                   }}
