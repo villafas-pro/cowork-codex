@@ -3,7 +3,7 @@ import { NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import Editor from '@monaco-editor/react'
 import { Code2, Copy, Check, ExternalLink, X, ChevronDown } from 'lucide-react'
-import { useAppStore } from '../../store/appStore'
+import { useAppStore } from '../../../store/appStore'
 
 const LANGUAGES = [
   'plaintext', 'javascript', 'typescript', 'python', 'csharp', 'sql',

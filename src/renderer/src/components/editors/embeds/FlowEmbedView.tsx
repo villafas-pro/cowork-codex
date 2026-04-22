@@ -15,7 +15,7 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { GitBranch, ExternalLink, X, Plus, Square, Circle, Diamond, Type, Minus } from 'lucide-react'
-import { useAppStore } from '../../store/appStore'
+import { useAppStore } from '../../../store/appStore'
 import { nodeTypes } from '../flow/FlowNodeTypes'
 
 type NodeShapeType = 'rect' | 'circle' | 'diamond' | 'text'
