@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { NoteLink } from './extensions/NoteLink'
+import { CodeEmbed } from './extensions/CodeEmbed'
+import { FlowEmbed } from './extensions/FlowEmbed'
 import WorkItemSearch from '../WorkItemSearch'
 import { type WorkItem, TYPE_COLORS, DONE_STATES } from '../../lib/workItemUtils'
 
@@ -93,6 +95,8 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
       Placeholder.configure({ placeholder: 'Start writing...' }),
       NoteLink,
       Image.configure({ inline: false, allowBase64: true }),
+      CodeEmbed,
+      FlowEmbed,
     ],
     content: '',
     onUpdate: ({ editor }) => {
@@ -219,6 +223,20 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
       setLinkedFlows((prev) => [...prev, flow])
       openTab({ entityType: 'flow', entityId: flow.id, title: flow.title || 'Untitled Flow' })
     }
+  }
+
+  async function insertCodeEmbed(): Promise<void> {
+    const block = await window.api?.code.create({ title: 'Untitled', noteId })
+    if (!block) return
+    setLinkedCode((prev) => [...prev, block])
+    editor?.chain().focus().insertContent({ type: 'codeEmbed', attrs: { blockId: block.id } }).run()
+  }
+
+  async function insertFlowEmbed(): Promise<void> {
+    const flow = await window.api?.flows.create({ title: 'Untitled Flow', noteId })
+    if (!flow) return
+    setLinkedFlows((prev) => [...prev, flow])
+    editor?.chain().focus().insertContent({ type: 'flowEmbed', attrs: { flowId: flow.id } }).run()
   }
 
   const scheduleSave = useCallback((currentTitle: string, content: any) => {
@@ -436,6 +454,14 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
             {/* Block */}
             <button onClick={() => editor?.chain().focus().toggleBlockquote().run()} className={btn(!!editor?.isActive('blockquote'))} title="Blockquote">
               <Quote size={13} />
+            </button>
+            {div}
+            {/* Embeds */}
+            <button onClick={insertCodeEmbed} className={btn(false)} title="Insert code block">
+              <Code2 size={13} />
+            </button>
+            <button onClick={insertFlowEmbed} className={btn(false)} title="Insert flow diagram">
+              <GitBranch size={13} />
             </button>
           </>)}
 
