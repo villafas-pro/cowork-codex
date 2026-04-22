@@ -1,12 +1,12 @@
 <svg width="256" height="256" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" rx="22" fill="#141414"/>
-  <rect x="26" y="17" width="62" height="76" rx="5" fill="#2c2c2c" transform="rotate(-7 56 55)"/>
-  <path d="M 36 23 L 84 23 L 104 43 L 104 113 L 36 113 Z" fill="#202020"/>
-  <path d="M 84 23 L 104 43 L 84 43 Z" fill="#e8b800"/>
-  <line x1="84" y1="23" x2="104" y2="43" stroke="#0d0d0d" stroke-width="1.5" opacity="0.5"/>
-  <path d="M 54 51 L 48 57 L 54 63" stroke="#e8b800" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <line x1="58" y1="57" x2="92" y2="57" stroke="#2e2e2e" stroke-width="3" stroke-linecap="round"/>
-  <line x1="48" y1="70" x2="92" y2="70" stroke="#272727" stroke-width="3" stroke-linecap="round"/>
-  <line x1="48" y1="83" x2="78" y2="83" stroke="#2e2e2e" stroke-width="3" stroke-linecap="round"/>
-  <path d="M 81 78 L 87 83 L 81 88" stroke="#e8b800" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- no background rect — transparent -->
+  <rect x="22" y="12" width="68" height="84" rx="5" fill="#2c2c2c" transform="rotate(-7 55 54)"/>
+  <path d="M 33 19 L 85 19 L 107 41 L 107 118 L 33 118 Z" fill="#202020"/>
+  <path d="M 85 19 L 107 41 L 85 41 Z" fill="#e8b800"/>
+  <line x1="85" y1="19" x2="107" y2="41" stroke="#0d0d0d" stroke-width="1.5" opacity="0.5"/>
+  <path d="M 52 49 L 46 56 L 52 63" stroke="#e8b800" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="57" y1="56" x2="94" y2="56" stroke="#2e2e2e" stroke-width="3" stroke-linecap="round"/>
+  <line x1="46" y1="70" x2="94" y2="70" stroke="#272727" stroke-width="3" stroke-linecap="round"/>
+  <line x1="46" y1="85" x2="79" y2="85" stroke="#2e2e2e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 82 79 L 89 85 L 82 90" stroke="#e8b800" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 </svg>
