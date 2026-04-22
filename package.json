@@ -8,7 +8,8 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "build:win": "npm run build && electron-builder --win --config electron-builder.yml",
-    "rebuild": "electron-rebuild -f -w better-sqlite3"
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
