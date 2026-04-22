@@ -51,17 +51,20 @@ const api = {
     import: (sourceId: string, targetNoteId: string, mode: 'copy' | 'sync') =>
       ipcRenderer.invoke('code:import', sourceId, targetNoteId, mode),
     getSyncLocations: (syncGroupId: string) =>
-      ipcRenderer.invoke('code:getSyncLocations', syncGroupId)
+      ipcRenderer.invoke('code:getSyncLocations', syncGroupId),
+    unlinkNote: (id: string) => ipcRenderer.invoke('code:unlinkNote', id)
   },
 
   // Flows
   flows: {
     getAll: () => ipcRenderer.invoke('flows:getAll'),
     get: (id: string) => ipcRenderer.invoke('flows:get', id),
+    getForNote: (noteId: string) => ipcRenderer.invoke('flows:getForNote', noteId),
     create: (data: object) => ipcRenderer.invoke('flows:create', data),
     update: (id: string, data: object) => ipcRenderer.invoke('flows:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('flows:delete', id),
-    togglePin: (id: string) => ipcRenderer.invoke('flows:togglePin', id)
+    togglePin: (id: string) => ipcRenderer.invoke('flows:togglePin', id),
+    unlinkNote: (id: string) => ipcRenderer.invoke('flows:unlinkNote', id)
   },
 
   // App / Settings

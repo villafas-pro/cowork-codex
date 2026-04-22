@@ -20,7 +20,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import {
   Plus, Trash2, Pin, Square, Circle, Diamond,
-  Type, Link2, Clipboard, CheckSquare, X, ExternalLink, Minus, AlertTriangle
+  Type, Link2, Clipboard, CheckSquare, X, ExternalLink, Minus, AlertTriangle, FileText
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
@@ -115,6 +115,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
   const [newItemUrl, setNewItemUrl] = useState('')
   const [showAddItem, setShowAddItem] = useState(false)
   const [adoConfigured, setAdoConfigured] = useState(false)
+  const [linkedNote, setLinkedNote] = useState<{ id: string; title: string } | null>(null)
   const [selectedNodeType, setSelectedNodeType] = useState<'rect' | 'circle' | 'diamond' | 'text'>('rect')
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
@@ -141,6 +142,12 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     titleRef.current = t
     setIsPinned(!!flow.is_pinned)
     updateTabTitle(flowId, t || 'Untitled')
+    if (flow.note_id) {
+      const note = await window.api?.notes.get(flow.note_id)
+      setLinkedNote(note ? { id: note.id, title: note.title || 'Untitled' } : null)
+    } else {
+      setLinkedNote(null)
+    }
 
     if (flow.content_json && flow.content_json !== '{}') {
       try {
@@ -267,6 +274,11 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     const tab = tabs.find((t) => t.entityType === 'flow' && t.entityId === flowId)
     if (tab) closeTab(tab.id)
     setActiveSection('flow')
+  }
+
+  const unlinkNote = async (): Promise<void> => {
+    await window.api?.flows.unlinkNote(flowId)
+    setLinkedNote(null)
   }
 
   // Work item actions
@@ -533,6 +545,32 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
             ))
           )}
         </div>
+
+        {/* Linked in note */}
+        {linkedNote && (
+          <div className="border-t border-th-bd-1 flex-shrink-0">
+            <div className="flex items-center gap-1.5 px-3 py-2.5">
+              <FileText size={12} className="text-th-tx-5" />
+              <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide">Linked in</span>
+            </div>
+            <div className="flex items-center gap-1 px-2 pb-2 group">
+              <button
+                onClick={() => openTab({ entityType: 'note', entityId: linkedNote.id, title: linkedNote.title })}
+                className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-th-bg-3 transition-all text-left min-w-0"
+              >
+                <FileText size={12} className="text-th-tx-5 flex-shrink-0" />
+                <span className="text-xs text-th-tx-2 truncate hover:text-accent transition-colors">{linkedNote.title}</span>
+              </button>
+              <button
+                onClick={unlinkNote}
+                title="Unlink from note"
+                className="p-1 rounded text-th-tx-6 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

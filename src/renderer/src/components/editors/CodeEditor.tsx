@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
-import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, CheckSquare, Square, ExternalLink, X, AlertTriangle } from 'lucide-react'
+import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, CheckSquare, Square, ExternalLink, X, AlertTriangle, Copy, Check, FileText } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
 import { type WorkItem, TYPE_COLORS, DONE_STATES } from '../../lib/workItemUtils'
@@ -22,6 +22,8 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   const [newItemUrl, setNewItemUrl] = useState('')
   const [showAddItem, setShowAddItem] = useState(false)
   const [adoConfigured, setAdoConfigured] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [linkedNote, setLinkedNote] = useState<{ id: string; title: string } | null>(null)
 
   const titleRef = useRef('')
   const languageRef = useRef('plaintext')
@@ -44,6 +46,12 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     setContent(block.content || '')
     setIsPinned(!!block.is_pinned)
     updateTabTitle(blockId, t || 'Untitled')
+    if (block.note_id) {
+      const note = await window.api?.notes.get(block.note_id)
+      setLinkedNote(note ? { id: note.id, title: note.title || 'Untitled' } : null)
+    } else {
+      setLinkedNote(null)
+    }
   }
 
   async function loadWorkItems(): Promise<void> {
@@ -77,6 +85,17 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     const val = value || ''
     setContent(val)
     scheduleSave(titleRef.current, languageRef.current, val)
+  }
+
+  const unlinkNote = async (): Promise<void> => {
+    await window.api?.code.unlinkNote(blockId)
+    setLinkedNote(null)
+  }
+
+  const copyContent = async (): Promise<void> => {
+    await navigator.clipboard.writeText(content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   const togglePin = async (): Promise<void> => {
@@ -167,6 +186,13 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
             )}
           </div>
 
+          <button
+            onClick={copyContent}
+            className={`p-1.5 rounded transition-all flex-shrink-0 ${copied ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`}
+            title="Copy all"
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+          </button>
           <button
             onClick={togglePin}
             className={`p-1.5 rounded transition-all flex-shrink-0 ${isPinned ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`}
@@ -306,6 +332,32 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
             ))
           )}
         </div>
+
+        {/* Linked in note */}
+        {linkedNote && (
+          <div className="border-t border-th-bd-1 flex-shrink-0">
+            <div className="flex items-center gap-1.5 px-3 py-2.5">
+              <FileText size={12} className="text-th-tx-5" />
+              <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide">Linked in</span>
+            </div>
+            <div className="flex items-center gap-1 px-2 pb-2 group">
+              <button
+                onClick={() => openTab({ entityType: 'note', entityId: linkedNote.id, title: linkedNote.title })}
+                className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-th-bg-3 transition-all text-left min-w-0"
+              >
+                <FileText size={12} className="text-th-tx-5 flex-shrink-0" />
+                <span className="text-xs text-th-tx-2 truncate hover:text-accent transition-colors">{linkedNote.title}</span>
+              </button>
+              <button
+                onClick={unlinkNote}
+                title="Unlink from note"
+                className="p-1 rounded text-th-tx-6 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

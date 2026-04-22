@@ -10,7 +10,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2,
   List, ListOrdered, ListChecks, Quote, Strikethrough,
   Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin, Trash2, AlertTriangle,
-  Lock, LockOpen, KeyRound, Eye, EyeOff, History, RotateCcw
+  Lock, LockOpen, KeyRound, Eye, EyeOff, History, RotateCcw, Code2, GitBranch
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import { NoteLink } from './extensions/NoteLink'
@@ -75,6 +75,11 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0)
   const [versionPreview, setVersionPreview] = useState('')
 
+  // Linked code/flow panel
+  const [activePanel, setActivePanel] = useState<'work-items' | 'code' | 'flow'>('work-items')
+  const [linkedCode, setLinkedCode] = useState<Array<{ id: string; title: string; language: string; updated_at: number }>>([])
+  const [linkedFlows, setLinkedFlows] = useState<Array<{ id: string; title: string; updated_at: number }>>([])
+
   const titleRef = useRef('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingContent = useRef<any>(null)
@@ -99,6 +104,8 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     pendingContent.current = null
     loadNote()
     loadWorkItems()
+    loadLinkedCode()
+    loadLinkedFlows()
     window.api?.ado.isConfigured().then(setAdoConfigured)
   }, [noteId])
 
@@ -186,6 +193,32 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   async function loadWorkItems(): Promise<void> {
     const items = await window.api?.workItems.getForEntity('note', noteId)
     setWorkItems(items || [])
+  }
+
+  async function loadLinkedCode(): Promise<void> {
+    const blocks = await window.api?.code.getForNote(noteId)
+    setLinkedCode(blocks || [])
+  }
+
+  async function loadLinkedFlows(): Promise<void> {
+    const flows = await window.api?.flows.getForNote(noteId)
+    setLinkedFlows(flows || [])
+  }
+
+  async function createLinkedCode(): Promise<void> {
+    const block = await window.api?.code.create({ title: 'Untitled', noteId })
+    if (block) {
+      setLinkedCode((prev) => [...prev, block])
+      openTab({ entityType: 'code', entityId: block.id, title: block.title || 'Untitled' })
+    }
+  }
+
+  async function createLinkedFlow(): Promise<void> {
+    const flow = await window.api?.flows.create({ title: 'Untitled Flow', noteId })
+    if (flow) {
+      setLinkedFlows((prev) => [...prev, flow])
+      openTab({ entityType: 'flow', entityId: flow.id, title: flow.title || 'Untitled Flow' })
+    }
   }
 
   const scheduleSave = useCallback((currentTitle: string, content: any) => {
@@ -527,106 +560,188 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
         )}
       </div>
 
-      {/* Work items panel — hidden when note is password-locked */}
-      {!isPasswordLocked && <div className="w-60 flex-shrink-0 border-l border-th-bd-1 bg-th-bg-1 flex flex-col">
-        <div className="flex items-center justify-between px-3 py-3 border-b border-th-bd-1">
-          <div className="flex items-center gap-1.5">
-            <Link2 size={12} className="text-th-tx-5" />
-            <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide">Work Items</span>
-            {allDone && <span className="text-xs text-accent ml-1">✓ Done</span>}
-          </div>
-          {!isLocked && (
-            <div className="flex items-center gap-0.5">
-              <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
-                <Clipboard size={12} />
+      {/* Right panel — hidden when note is password-locked */}
+      {!isPasswordLocked && (
+        <div className="w-60 flex-shrink-0 border-l border-th-bd-1 bg-th-bg-1 flex flex-col">
+
+          {/* Tab switcher */}
+          <div className="flex border-b border-th-bd-1 flex-shrink-0">
+            {([
+              { id: 'work-items', icon: <Link2 size={11} />, label: 'Work Items' },
+              { id: 'code',       icon: <Code2 size={11} />,     label: 'Code' },
+              { id: 'flow',       icon: <GitBranch size={11} />, label: 'Flow' },
+            ] as const).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActivePanel(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-1 py-2 text-[10px] font-medium uppercase tracking-wide transition-colors border-b-2 ${
+                  activePanel === tab.id
+                    ? 'text-accent border-accent'
+                    : 'text-th-tx-5 border-transparent hover:text-th-tx-3'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
               </button>
-              {!adoConfigured && (
-                <button
-                  onClick={() => setShowAddItem(!showAddItem)}
-                  className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all"
-                >
+            ))}
+          </div>
+
+          {/* Work Items panel */}
+          {activePanel === 'work-items' && (<>
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-th-bd-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-th-tx-4 font-medium">Linked items</span>
+                {allDone && <span className="text-xs text-accent">✓ Done</span>}
+              </div>
+              {!isLocked && (
+                <div className="flex items-center gap-0.5">
+                  <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
+                    <Clipboard size={12} />
+                  </button>
+                  {!adoConfigured && (
+                    <button onClick={() => setShowAddItem(!showAddItem)} className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
+                      <Plus size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {!isLocked && adoConfigured && (
+              <div className="px-3 py-2 border-b border-th-bd-1">
+                <WorkItemSearch onAdd={(url) => { addWorkItem(url) }} />
+              </div>
+            )}
+
+            {!isLocked && showAddItem && !adoConfigured && (
+              <div className="px-3 py-2 border-b border-th-bd-1">
+                <input
+                  value={newItemUrl}
+                  onChange={(e) => setNewItemUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addWorkItem()}
+                  placeholder="Paste Azure DevOps URL..."
+                  autoFocus
+                  className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1.5 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
+                />
+              </div>
+            )}
+
+            <div className={`flex-1 overflow-y-auto py-1 transition-opacity ${allDone ? 'opacity-50' : ''}`}>
+              {workItems.length === 0 ? (
+                <p className="text-xs text-th-tx-6 text-center py-6">No linked work items</p>
+              ) : (
+                workItems.map((item) => (
+                  <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-th-bg-3 transition-all">
+                    {item.is_ado ? (
+                      <span className="flex-shrink-0 text-th-tx-6 mt-0.5 cursor-default" title="State managed by ADO">
+                        {effectiveDone(item) ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
+                      </span>
+                    ) : (
+                      <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-th-tx-6 hover:text-accent transition-colors mt-0.5">
+                        {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: item.cached_title || `#${item.item_number}` })}
+                      className={`flex-1 text-left min-w-0 transition-all hover:text-accent ${effectiveDone(item) ? 'opacity-40' : ''}`}
+                    >
+                      {item.cached_title ? (
+                        <>
+                          <p className="text-xs text-th-tx-2 truncate leading-snug">{item.cached_title}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {item.cached_type && (
+                              <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: TYPE_COLORS[item.cached_type] || '#666' }} />
+                            )}
+                            <span className="text-[10px] text-th-tx-6">#{item.item_number}</span>
+                            {item.cached_state && <span className="text-[10px] text-th-tx-6">· {item.cached_state}</span>}
+                          </div>
+                        </>
+                      ) : (
+                        <p className={`text-xs truncate ${item.is_done ? 'line-through text-th-tx-6' : 'text-th-tx-2'}`}>#{item.item_number}</p>
+                      )}
+                    </button>
+                    <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                      {item.is_ado && adoStatus === 'error' && (
+                        <span title="ADO connection error — data may be stale" className="text-amber-500 p-0.5">
+                          <AlertTriangle size={11} />
+                        </span>
+                      )}
+                      <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-th-tx-6 group-hover:text-th-tx-5 transition-colors p-0.5">
+                        <ExternalLink size={11} />
+                      </button>
+                      {!isLocked && (
+                        <button onClick={() => removeWorkItem(item.id)} className="text-th-tx-6 group-hover:text-th-tx-5 hover:!text-red-400 transition-colors p-0.5">
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>)}
+
+          {/* Code panel */}
+          {activePanel === 'code' && (<>
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-th-bd-1 flex-shrink-0">
+              <span className="text-xs text-th-tx-4 font-medium">Code blocks</span>
+              {!isLocked && (
+                <button onClick={createLinkedCode} title="New code block" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
                   <Plus size={12} />
                 </button>
               )}
             </div>
-          )}
-        </div>
-
-        {!isLocked && adoConfigured && (
-          <div className="px-3 py-2 border-b border-th-bd-1">
-            <WorkItemSearch
-              onAdd={(url) => { addWorkItem(url) }}
-            />
-          </div>
-        )}
-
-        {!isLocked && showAddItem && !adoConfigured && (
-          <div className="px-3 py-2 border-b border-th-bd-1">
-            <input
-              value={newItemUrl}
-              onChange={(e) => setNewItemUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addWorkItem()}
-              placeholder="Paste Azure DevOps URL..."
-              autoFocus
-              className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1.5 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
-            />
-          </div>
-        )}
-
-        <div className={`flex-1 overflow-y-auto py-1 transition-opacity ${allDone ? 'opacity-50' : ''}`}>
-          {workItems.length === 0 ? (
-            <p className="text-xs text-th-tx-6 text-center py-6">No linked work items</p>
-          ) : (
-            workItems.map((item) => (
-              <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-th-bg-3 transition-all">
-                {item.is_ado ? (
-                  <span className="flex-shrink-0 text-th-tx-6 mt-0.5 cursor-default" title="State managed by ADO">
-                    {effectiveDone(item) ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
-                  </span>
-                ) : (
-                  <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-th-tx-6 hover:text-accent transition-colors mt-0.5">
-                    {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
+            <div className="flex-1 overflow-y-auto py-1">
+              {linkedCode.length === 0 ? (
+                <p className="text-xs text-th-tx-6 text-center py-6">No code blocks linked to this note</p>
+              ) : (
+                linkedCode.map((block) => (
+                  <button
+                    key={block.id}
+                    onClick={() => openTab({ entityType: 'code', entityId: block.id, title: block.title || 'Untitled' })}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 group hover:bg-th-bg-3 transition-all text-left"
+                  >
+                    <Code2 size={13} className="text-th-tx-5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-th-tx-2 truncate group-hover:text-accent transition-colors">{block.title || 'Untitled'}</p>
+                      <p className="text-[10px] text-th-tx-6">{block.language}</p>
+                    </div>
                   </button>
-                )}
-                <button
-                  onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: item.cached_title || `#${item.item_number}` })}
-                  className={`flex-1 text-left min-w-0 transition-all hover:text-accent ${effectiveDone(item) ? 'opacity-40' : ''}`}
-                >
-                  {item.cached_title ? (
-                    <>
-                      <p className="text-xs text-th-tx-2 truncate leading-snug">{item.cached_title}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {item.cached_type && (
-                          <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: TYPE_COLORS[item.cached_type] || '#666' }} />
-                        )}
-                        <span className="text-[10px] text-th-tx-6">#{item.item_number}</span>
-                        {item.cached_state && <span className="text-[10px] text-th-tx-6">· {item.cached_state}</span>}
-                      </div>
-                    </>
-                  ) : (
-                    <p className={`text-xs truncate ${item.is_done ? 'line-through text-th-tx-6' : 'text-th-tx-2'}`}>#{item.item_number}</p>
-                  )}
+                ))
+              )}
+            </div>
+          </>)}
+
+          {/* Flow panel */}
+          {activePanel === 'flow' && (<>
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-th-bd-1 flex-shrink-0">
+              <span className="text-xs text-th-tx-4 font-medium">Flows</span>
+              {!isLocked && (
+                <button onClick={createLinkedFlow} title="New flow" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
+                  <Plus size={12} />
                 </button>
-                <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-                  {item.is_ado && adoStatus === 'error' && (
-                    <span title="ADO connection error — data may be stale" className="text-amber-500 p-0.5">
-                      <AlertTriangle size={11} />
-                    </span>
-                  )}
-                  <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-th-tx-6 group-hover:text-th-tx-5 transition-colors p-0.5">
-                    <ExternalLink size={11} />
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto py-1">
+              {linkedFlows.length === 0 ? (
+                <p className="text-xs text-th-tx-6 text-center py-6">No flows linked to this note</p>
+              ) : (
+                linkedFlows.map((flow) => (
+                  <button
+                    key={flow.id}
+                    onClick={() => openTab({ entityType: 'flow', entityId: flow.id, title: flow.title || 'Untitled' })}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 group hover:bg-th-bg-3 transition-all text-left"
+                  >
+                    <GitBranch size={13} className="text-th-tx-5 flex-shrink-0" />
+                    <p className="text-xs text-th-tx-2 truncate group-hover:text-accent transition-colors">{flow.title || 'Untitled'}</p>
                   </button>
-                  {!isLocked && (
-                    <button onClick={() => removeWorkItem(item.id)} className="text-th-tx-6 group-hover:text-th-tx-5 hover:!text-red-400 transition-colors p-0.5">
-                      <X size={11} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
+                ))
+              )}
+            </div>
+          </>)}
+
         </div>
-      </div>}
+      )}
 
       {/* ── Version history modal ──────────────────────────────────────── */}
       {showHistory && (

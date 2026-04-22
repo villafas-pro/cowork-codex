@@ -56,4 +56,15 @@ export function registerFlowHandlers(): void {
     db.prepare('UPDATE flows SET is_pinned = ? WHERE id = ?').run(newVal, id)
     return { isPinned: newVal }
   })
+
+  ipcMain.handle('flows:getForNote', (_, noteId: string) => {
+    const db = getDb()
+    return db.prepare('SELECT * FROM flows WHERE note_id = ? ORDER BY created_at ASC').all(noteId)
+  })
+
+  ipcMain.handle('flows:unlinkNote', (_, id: string) => {
+    const db = getDb()
+    db.prepare('UPDATE flows SET note_id = NULL WHERE id = ?').run(id)
+    return { success: true }
+  })
 }

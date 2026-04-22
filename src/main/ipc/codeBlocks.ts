@@ -112,6 +112,12 @@ export function registerCodeBlockHandlers(): void {
     return db.prepare('SELECT * FROM code_blocks WHERE id = ?').get(newId)
   })
 
+  ipcMain.handle('code:unlinkNote', (_, id: string) => {
+    const db = getDb()
+    db.prepare('UPDATE code_blocks SET note_id = NULL WHERE id = ?').run(id)
+    return { success: true }
+  })
+
   // Get all blocks in a sync group
   ipcMain.handle('code:getSyncLocations', (_, syncGroupId: string) => {
     const db = getDb()
