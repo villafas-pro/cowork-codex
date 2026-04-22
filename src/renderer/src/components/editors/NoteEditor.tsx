@@ -562,6 +562,8 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
             className="flex-1 overflow-y-auto px-8 py-5 cursor-text"
             onClick={async (e) => {
               const target = e.target as HTMLElement
+              // Don't steal focus from embedded code/flow blocks
+              if (target.closest('[data-node-view-wrapper]')) return
               if (target.classList.contains('note-link')) {
                 const noteName = target.getAttribute('data-note-name')
                 if (noteName) {
