@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
-import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, CheckSquare, Square, ExternalLink, X, AlertTriangle, Copy, Check, FileText } from 'lucide-react'
+import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, X, Copy, Check, FileText } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
-import { type WorkItem, TYPE_COLORS, DONE_STATES } from '../../lib/workItemUtils'
+import { type WorkItem, effectiveDone } from '../../lib/workItemUtils'
+import WorkItemRow from '../WorkItemRow'
 
 const LANGUAGES = [
   'plaintext', 'javascript', 'typescript', 'python', 'csharp', 'sql',
@@ -24,6 +25,9 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   const [adoConfigured, setAdoConfigured] = useState(false)
   const [copied, setCopied] = useState(false)
   const [linkedNote, setLinkedNote] = useState<{ id: string; title: string } | null>(null)
+  const [activeTab, setActiveTab] = useState<'notes' | 'work-items'>('notes')
+  const [allNotes, setAllNotes] = useState<Array<{ id: string; title: string }>>([])
+  const [noteSearch, setNoteSearch] = useState('')
 
   const titleRef = useRef('')
   const languageRef = useRef('plaintext')
@@ -32,6 +36,7 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   useEffect(() => {
     loadBlock()
     loadWorkItems()
+    loadAllNotes()
     window.api?.ado.isConfigured().then(setAdoConfigured)
   }, [blockId])
 
@@ -57,6 +62,42 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   async function loadWorkItems(): Promise<void> {
     const items = await window.api?.workItems.getForEntity('code', blockId)
     setWorkItems(items || [])
+  }
+
+  async function loadAllNotes(): Promise<void> {
+    const notes = await window.api?.notes.getAll()
+    setAllNotes(notes || [])
+  }
+
+  const appendToNote = async (note: { id: string; title: string }): Promise<void> => {
+    const full = await window.api?.notes.get(note.id)
+    let doc: any = { type: 'doc', content: [{ type: 'paragraph' }] }
+    if (full?.content && full.content !== '{}') {
+      try { doc = JSON.parse(full.content) } catch { /* keep default */ }
+    }
+    doc.content = [...(doc.content || []), { type: 'codeEmbed', attrs: { blockId } }, { type: 'paragraph' }]
+    await window.api?.notes.update(note.id, { content: JSON.stringify(doc) })
+    await window.api?.code.linkNote(blockId, note.id)
+    setLinkedNote({ id: note.id, title: note.title || 'Untitled' })
+    openTab({ entityType: 'note', entityId: note.id, title: note.title || 'Untitled' })
+  }
+
+  const createNewNote = async (): Promise<void> => {
+    const noteContent = JSON.stringify({
+      type: 'doc',
+      content: [{ type: 'codeEmbed', attrs: { blockId } }, { type: 'paragraph' }],
+    })
+    const note = await window.api?.notes.create({ title: '', content: noteContent })
+    if (!note) return
+    await window.api?.code.linkNote(blockId, note.id)
+    setLinkedNote({ id: note.id, title: note.title || 'Untitled' })
+    await loadAllNotes()
+    openTab({ entityType: 'note', entityId: note.id, title: 'Untitled' })
+  }
+
+  const unlinkNote = async (): Promise<void> => {
+    await window.api?.code.unlinkNote(blockId)
+    setLinkedNote(null)
   }
 
   const scheduleSave = useCallback((t: string, lang: string, c: string) => {
@@ -85,11 +126,6 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     const val = value || ''
     setContent(val)
     scheduleSave(titleRef.current, languageRef.current, val)
-  }
-
-  const unlinkNote = async (): Promise<void> => {
-    await window.api?.code.unlinkNote(blockId)
-    setLinkedNote(null)
   }
 
   const copyContent = async (): Promise<void> => {
@@ -140,8 +176,6 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     setWorkItems((prev) => prev.filter((i) => i.id !== workItemId))
   }
 
-  const effectiveDone = (i: WorkItem): boolean =>
-    i.is_ado && i.cached_state ? DONE_STATES.has(i.cached_state) : !!i.is_done
   const allDone = workItems.length > 0 && workItems.every(effectiveDone)
 
   return (
@@ -237,127 +271,147 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
         </div>
       </div>
 
-      {/* Work items panel */}
-      <div className={`w-60 flex-shrink-0 border-l border-th-bd-1 bg-th-bg-1 flex flex-col transition-opacity ${allDone ? 'opacity-50' : ''}`}>
-        <div className="flex items-center justify-between px-3 py-3 border-b border-th-bd-1">
-          <div className="flex items-center gap-1.5">
-            <Link2 size={12} className="text-th-tx-5" />
-            <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide">Work Items</span>
-            {allDone && <span className="text-xs text-accent ml-1">✓ Done</span>}
-          </div>
-          <div className="flex items-center gap-0.5">
-            <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
-              <Clipboard size={12} />
+      {/* Right panel */}
+      <div className="w-60 flex-shrink-0 border-l border-th-bd-1 bg-th-bg-1 flex flex-col">
+
+        {/* Tab bar */}
+        <div className="flex border-b border-th-bd-1 flex-shrink-0">
+          {([
+            { id: 'notes',      icon: <FileText size={11} />, label: 'Notes' },
+            { id: 'work-items', icon: <Link2 size={11} />,    label: 'Work Items' },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setNoteSearch('') }}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 text-[10px] font-medium uppercase tracking-wide transition-colors border-b-2 ${
+                activeTab === tab.id ? 'text-accent border-accent' : 'text-th-tx-5 border-transparent hover:text-th-tx-3'
+              }`}
+            >
+              {tab.icon}{tab.label}
             </button>
-            {!adoConfigured && (
-              <button
-                onClick={() => setShowAddItem(!showAddItem)}
-                className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all"
-              >
-                <Plus size={12} />
-              </button>
-            )}
-          </div>
+          ))}
         </div>
 
-        {adoConfigured && (
-          <div className="px-3 py-2 border-b border-th-bd-1">
-            <WorkItemSearch
-              onAdd={(url) => { addWorkItem(url) }}
-            />
-          </div>
-        )}
-
-        {showAddItem && !adoConfigured && (
-          <div className="px-3 py-2 border-b border-th-bd-1">
+        {/* Notes tab */}
+        {activeTab === 'notes' && (<>
+          <div className="px-3 py-2 border-b border-th-bd-1 flex-shrink-0 flex items-center gap-2">
             <input
-              value={newItemUrl}
-              onChange={(e) => setNewItemUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addWorkItem()}
-              placeholder="Paste Azure DevOps URL..."
-              autoFocus
-              className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1.5 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
+              value={noteSearch}
+              onChange={(e) => setNoteSearch(e.target.value)}
+              placeholder="Search…"
+              className="flex-1 bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
             />
+            <button onClick={createNewNote} title="New note with this block" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all flex-shrink-0">
+              <Plus size={12} />
+            </button>
           </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto py-1">
-          {workItems.length === 0 ? (
-            <p className="text-xs text-th-tx-6 text-center py-6">No linked work items</p>
-          ) : (
-            workItems.map((item) => (
-              <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-th-bg-3 transition-all">
-                {item.is_ado ? (
-                  <span className="flex-shrink-0 text-th-tx-6 mt-0.5 cursor-default" title="State managed by ADO">
-                    {effectiveDone(item) ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
-                  </span>
-                ) : (
-                  <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-th-tx-6 hover:text-accent transition-colors mt-0.5">
-                    {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
+          <div className="flex-1 overflow-y-auto">
+            {/* Linked */}
+            {linkedNote && (!noteSearch || (linkedNote.title || 'Untitled').toLowerCase().includes(noteSearch.toLowerCase())) && (
+              <>
+                <p className="px-3 pt-2 pb-1 text-[10px] text-th-tx-6 uppercase tracking-wide">Linked</p>
+                <div className="flex items-center gap-1 px-2 group">
+                  <button
+                    onClick={() => openTab({ entityType: 'note', entityId: linkedNote.id, title: linkedNote.title })}
+                    className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-th-bg-3 transition-all text-left min-w-0"
+                  >
+                    <FileText size={12} className="text-th-tx-5 flex-shrink-0" />
+                    <span className="text-xs text-th-tx-2 truncate hover:text-accent transition-colors">{linkedNote.title || 'Untitled'}</span>
                   </button>
-                )}
-                <button
-                  onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: item.cached_title || `#${item.item_number}` })}
-                  className={`flex-1 text-left min-w-0 transition-all hover:text-accent ${effectiveDone(item) ? 'opacity-40' : ''}`}
-                >
-                  {item.cached_title ? (
-                    <>
-                      <p className="text-xs text-th-tx-2 truncate leading-snug">{item.cached_title}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {item.cached_type && (
-                          <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: TYPE_COLORS[item.cached_type] || '#666' }} />
-                        )}
-                        <span className="text-[10px] text-th-tx-6">#{item.item_number}</span>
-                        {item.cached_state && <span className="text-[10px] text-th-tx-6">· {item.cached_state}</span>}
-                      </div>
-                    </>
-                  ) : (
-                    <p className={`text-xs truncate ${item.is_done ? 'line-through text-th-tx-6' : 'text-th-tx-2'}`}>#{item.item_number}</p>
-                  )}
-                </button>
-                <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-                  {item.is_ado && adoStatus === 'error' && (
-                    <span title="ADO connection error — data may be stale" className="text-amber-500 p-0.5">
-                      <AlertTriangle size={11} />
-                    </span>
-                  )}
-                  <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-th-tx-6 group-hover:text-th-tx-5 transition-colors p-0.5">
-                    <ExternalLink size={11} />
-                  </button>
-                  <button onClick={() => removeWorkItem(item.id)} className="text-th-tx-6 group-hover:text-th-tx-5 hover:!text-red-400 transition-colors p-0.5">
+                  <button onClick={unlinkNote} title="Unlink" className="p-1 rounded text-th-tx-6 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100">
                     <X size={11} />
                   </button>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              </>
+            )}
+            {/* All notes */}
+            {(() => {
+              const others = allNotes.filter(n =>
+                n.id !== linkedNote?.id &&
+                (!noteSearch || (n.title || 'Untitled').toLowerCase().includes(noteSearch.toLowerCase()))
+              )
+              if (!others.length) return null
+              return (
+                <>
+                  <p className="px-3 pt-2 pb-1 text-[10px] text-th-tx-6 uppercase tracking-wide">All</p>
+                  {others.map((n) => (
+                    <div key={n.id} className="flex items-center gap-1 px-2 group">
+                      <button
+                        onClick={() => openTab({ entityType: 'note', entityId: n.id, title: n.title })}
+                        className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-th-bg-3 transition-all text-left min-w-0"
+                      >
+                        <FileText size={12} className="text-th-tx-6 flex-shrink-0" />
+                        <span className="text-xs text-th-tx-4 truncate group-hover:text-th-tx-2 transition-colors">{n.title || 'Untitled'}</span>
+                      </button>
+                      <button onClick={() => appendToNote(n)} title="Append to this note" className="p-1 rounded text-th-tx-6 hover:text-accent transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100">
+                        <Plus size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )
+            })()}
+            {!linkedNote && allNotes.length === 0 && (
+              <p className="text-xs text-th-tx-6 text-center py-6">No notes yet</p>
+            )}
+          </div>
+        </>)}
 
-        {/* Linked in note */}
-        {linkedNote && (
-          <div className="border-t border-th-bd-1 flex-shrink-0">
-            <div className="flex items-center gap-1.5 px-3 py-2.5">
-              <FileText size={12} className="text-th-tx-5" />
-              <span className="text-xs text-th-tx-4 font-medium uppercase tracking-wide">Linked in</span>
+        {/* Work Items tab */}
+        {activeTab === 'work-items' && (<>
+          <div className={`flex flex-col flex-1 overflow-hidden transition-opacity ${allDone ? 'opacity-50' : ''}`}>
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-th-bd-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-th-tx-4 font-medium">Linked items</span>
+                {allDone && <span className="text-xs text-accent ml-1">✓ Done</span>}
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button onClick={pasteWorkItem} title="Paste from clipboard" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
+                  <Clipboard size={12} />
+                </button>
+                {!adoConfigured && (
+                  <button onClick={() => setShowAddItem(!showAddItem)} className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
+                    <Plus size={12} />
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-1 px-2 pb-2 group">
-              <button
-                onClick={() => openTab({ entityType: 'note', entityId: linkedNote.id, title: linkedNote.title })}
-                className="flex-1 flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-th-bg-3 transition-all text-left min-w-0"
-              >
-                <FileText size={12} className="text-th-tx-5 flex-shrink-0" />
-                <span className="text-xs text-th-tx-2 truncate hover:text-accent transition-colors">{linkedNote.title}</span>
-              </button>
-              <button
-                onClick={unlinkNote}
-                title="Unlink from note"
-                className="p-1 rounded text-th-tx-6 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-              >
-                <X size={11} />
-              </button>
+            {adoConfigured && (
+              <div className="px-3 py-2 border-b border-th-bd-1">
+                <WorkItemSearch onAdd={(url) => { addWorkItem(url) }} />
+              </div>
+            )}
+            {showAddItem && !adoConfigured && (
+              <div className="px-3 py-2 border-b border-th-bd-1">
+                <input
+                  value={newItemUrl}
+                  onChange={(e) => setNewItemUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addWorkItem()}
+                  placeholder="Paste Azure DevOps URL..."
+                  autoFocus
+                  className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1.5 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
+                />
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto py-1">
+              {workItems.length === 0 ? (
+                <p className="text-xs text-th-tx-6 text-center py-6">No linked work items</p>
+              ) : (
+                workItems.map((item) => (
+                  <WorkItemRow
+                    key={item.id}
+                    item={item}
+                    adoStatus={adoStatus}
+                    onToggle={toggleWorkItem}
+                    onOpen={(i) => openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || `#${i.item_number}` })}
+                    onRemove={removeWorkItem}
+                  />
+                ))
+              )}
             </div>
           </div>
-        )}
+        </>)}
+
       </div>
     </div>
   )

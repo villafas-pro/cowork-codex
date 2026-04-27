@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import Editor from '@monaco-editor/react'
-import { Code2, Copy, Check, ExternalLink, X, ChevronDown } from 'lucide-react'
+import { Code2, Copy, Check, ExternalLink, X, ChevronDown, GripVertical } from 'lucide-react'
 import { useAppStore } from '../../../store/appStore'
 
 const LANGUAGES = [
@@ -11,7 +11,7 @@ const LANGUAGES = [
   'java', 'php', 'ruby', 'cpp', 'xml', 'powershell',
 ]
 
-export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewProps): React.JSX.Element {
+export default function CodeEmbedView({ node, deleteNode, selected, getPos, editor }: NodeViewProps): React.JSX.Element {
   const { blockId } = node.attrs
   const { openTab } = useAppStore()
 
@@ -25,6 +25,65 @@ export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewPr
   const titleRef = useRef('')
   const languageRef = useRef('plaintext')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dragFromGrip = useRef(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const embedFocusedRef = useRef(false)
+
+  // Native capture-phase listener on the editor DOM so we can call
+  // dataTransfer.setData() while the drag data store is still writable
+  // (React synthetic onDragStart fires too late — after propagation ends).
+  useEffect(() => {
+    const editorDom = editor.view.dom
+    const handler = (e: DragEvent): void => {
+      const pos = getPos()
+      if (pos === undefined) return
+      // Only handle dragstart events that target THIS embed's NodeViewWrapper
+      if (e.target !== editor.view.nodeDOM(pos)) return
+
+      if (!dragFromGrip.current) {
+        e.preventDefault() // cancel drags not initiated from the grip
+        return
+      }
+      dragFromGrip.current = false
+      if (!e.dataTransfer) return
+      e.dataTransfer.clearData()
+      e.dataTransfer.setData('application/cowork-embed', JSON.stringify({ pos, nodeSize: node.nodeSize }))
+      e.dataTransfer.effectAllowed = 'move'
+    }
+    editorDom.addEventListener('dragstart', handler, true) // capture = before ProseMirror
+    return () => editorDom.removeEventListener('dragstart', handler, true)
+  }, [editor, getPos, node.nodeSize])
+
+  // Use a ref so the wheel handler always reads the live focused value
+  // without needing to re-register on every focus change.
+  useEffect(() => {
+    const focusHandler = (e: MouseEvent): void => {
+      embedFocusedRef.current = !!wrapperRef.current?.contains(e.target as Node)
+    }
+    document.addEventListener('mousedown', focusHandler, true)
+
+    const wrapper = wrapperRef.current
+    const wheelHandler = (e: WheelEvent): void => {
+      if (embedFocusedRef.current) return
+      e.stopPropagation()
+      e.preventDefault()
+      let parent = wrapper?.parentElement
+      while (parent) {
+        const overflow = window.getComputedStyle(parent).overflowY
+        if ((overflow === 'auto' || overflow === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+          parent.scrollTop += e.deltaY
+          break
+        }
+        parent = parent.parentElement
+      }
+    }
+    wrapper?.addEventListener('wheel', wheelHandler, { capture: true, passive: false })
+
+    return () => {
+      document.removeEventListener('mousedown', focusHandler, true)
+      wrapper?.removeEventListener('wheel', wheelHandler, true)
+    }
+  }, [])
 
   useEffect(() => {
     if (!blockId) return
@@ -85,13 +144,19 @@ export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewPr
   return (
     <NodeViewWrapper>
       <div
+        ref={wrapperRef}
         className={`my-3 rounded-lg border overflow-hidden bg-[#1e1e1e] transition-all ${selected ? 'border-accent shadow-[0_0_0_1px_#e8b800]' : 'border-th-bd-2'}`}
         contentEditable={false}
         onKeyDown={(e) => e.stopPropagation()}
         onClick={() => setShowLangPicker(false)}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-th-bg-2 border-b border-th-bd-1">
+        <div className="flex items-center gap-2 px-3 py-2 bg-th-bg-2 border-b border-th-bd-1 select-none">
+          <GripVertical
+            size={12}
+            className="text-th-tx-6 hover:text-th-tx-4 flex-shrink-0 cursor-grab active:cursor-grabbing"
+            onMouseDown={(e) => { e.stopPropagation(); dragFromGrip.current = true }}
+          />
           <Code2 size={12} className="text-th-tx-5 flex-shrink-0" />
           <input
             value={title}
@@ -152,29 +217,29 @@ export default function CodeEmbedView({ node, deleteNode, selected }: NodeViewPr
 
         {/* Monaco editor — only rendered once data is loaded */}
         {loaded ? (
-          <div onMouseDown={(e) => e.stopPropagation()}>
-          <Editor
-            height="200px"
-            language={language}
-            value={content}
-            onChange={handleContentChange}
-            theme="vs-dark"
-            options={{
-              fontSize: 12,
-              fontFamily: "'Cascadia Code', 'Fira Code', Consolas, monospace",
-              fontLigatures: true,
-              minimap: { enabled: false },
-              lineNumbers: 'on',
-              wordWrap: 'on',
-              scrollBeyondLastLine: false,
-              padding: { top: 10, bottom: 10 },
-              renderLineHighlight: 'none',
-              smoothScrolling: true,
-              tabSize: 2,
-              automaticLayout: true,
-              scrollbar: { verticalScrollbarSize: 4, horizontalScrollbarSize: 4 },
-            }}
-          />
+          <div onMouseDown={(e) => e.stopPropagation()} onDragStart={(e) => e.stopPropagation()}>
+            <Editor
+              height="200px"
+              language={language}
+              value={content}
+              onChange={handleContentChange}
+              theme="vs-dark"
+              options={{
+                fontSize: 12,
+                fontFamily: "'Cascadia Code', 'Fira Code', Consolas, monospace",
+                fontLigatures: true,
+                minimap: { enabled: false },
+                lineNumbers: 'on',
+                wordWrap: 'on',
+                scrollBeyondLastLine: false,
+                padding: { top: 10, bottom: 10 },
+                renderLineHighlight: 'none',
+                smoothScrolling: true,
+                tabSize: 2,
+                automaticLayout: true,
+                scrollbar: { verticalScrollbarSize: 4, horizontalScrollbarSize: 4 },
+              }}
+            />
           </div>
         ) : (
           <div className="h-[200px] flex items-center justify-center">

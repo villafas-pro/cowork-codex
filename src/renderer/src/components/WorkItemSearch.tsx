@@ -64,10 +64,18 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const filterMountRef = useRef(true)
 
   useEffect(() => {
     searchRef.current?.focus()
   }, [])
+
+  // Re-search whenever a filter chip changes (skip the initial mount)
+  useEffect(() => {
+    if (filterMountRef.current) { filterMountRef.current = false; return }
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    doSearch()
+  }, [assignedToMe, type, state])
 
   async function doSearch(): Promise<void> {
     setLoading(true)

@@ -67,4 +67,10 @@ export function registerFlowHandlers(): void {
     db.prepare('UPDATE flows SET note_id = NULL WHERE id = ?').run(id)
     return { success: true }
   })
+
+  ipcMain.handle('flows:linkNote', (_, flowId: string, noteId: string) => {
+    const db = getDb()
+    db.prepare('UPDATE flows SET note_id = ?, updated_at = ? WHERE id = ?').run(noteId, Date.now(), flowId)
+    return { success: true }
+  })
 }

@@ -67,14 +67,19 @@ declare global {
         syncBlocks: (sourceId: string, targetId: string) => Promise<any>
         import: (sourceId: string, targetNoteId: string, mode: 'copy' | 'sync') => Promise<any>
         getSyncLocations: (syncGroupId: string) => Promise<any[]>
+        linkNote: (codeId: string, noteId: string) => Promise<any>
+        unlinkNote: (id: string) => Promise<any>
       }
       flows: {
         getAll: () => Promise<any[]>
         get: (id: string) => Promise<any>
+        getForNote: (noteId: string) => Promise<any[]>
         create: (data: object) => Promise<any>
         update: (id: string, data: object) => Promise<any>
         delete: (id: string) => Promise<any>
         togglePin: (id: string) => Promise<any>
+        linkNote: (flowId: string, noteId: string) => Promise<any>
+        unlinkNote: (id: string) => Promise<any>
       }
       settings: {
         get: (key: string) => Promise<string | undefined>
@@ -204,16 +209,16 @@ export default function App(): React.JSX.Element {
       const activeTab = tabs.find((t) => t.id === activeTabId)
       if (activeTab) {
         if (activeTab.entityType === 'note') {
-          return <NoteEditor noteId={activeTab.entityId} />
+          return <NoteEditor key={activeTab.entityId} noteId={activeTab.entityId} />
         }
         if (activeTab.entityType === 'code') {
-          return <CodeEditor blockId={activeTab.entityId} />
+          return <CodeEditor key={activeTab.entityId} blockId={activeTab.entityId} />
         }
         if (activeTab.entityType === 'flow') {
-          return <FlowEditor flowId={activeTab.entityId} />
+          return <FlowEditor key={activeTab.entityId} flowId={activeTab.entityId} />
         }
         if (activeTab.entityType === 'work-item') {
-          return <WorkItemViewer adoId={activeTab.entityId} />
+          return <WorkItemViewer key={activeTab.entityId} adoId={activeTab.entityId} />
         }
       }
     }

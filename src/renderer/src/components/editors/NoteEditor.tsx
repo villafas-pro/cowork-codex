@@ -9,7 +9,7 @@ import Image from '@tiptap/extension-image'
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2,
   List, ListOrdered, ListChecks, Quote, Strikethrough,
-  Plus, ExternalLink, CheckSquare, Square, Link2, Clipboard, X, Pin, Trash2, AlertTriangle,
+  Plus, Link2, Clipboard, X, Pin, Trash2,
   Lock, LockOpen, KeyRound, Eye, EyeOff, History, RotateCcw, Code2, GitBranch
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
@@ -17,10 +17,11 @@ import { NoteLink } from './extensions/NoteLink'
 import { CodeEmbed } from './extensions/CodeEmbed'
 import { FlowEmbed } from './extensions/FlowEmbed'
 import WorkItemSearch from '../WorkItemSearch'
-import { type WorkItem, TYPE_COLORS, DONE_STATES } from '../../lib/workItemUtils'
+import { type WorkItem, effectiveDone } from '../../lib/workItemUtils'
+import WorkItemRow from '../WorkItemRow'
 
 function PasswordField({
-  label, value, onChange, visible, onToggle, onEnter
+  label, value, onChange, visible, onToggle, onEnter, autoFocus
 }: {
   label: string
   value: string
@@ -28,6 +29,7 @@ function PasswordField({
   visible: boolean
   onToggle: () => void
   onEnter: () => void
+  autoFocus?: boolean
 }): React.JSX.Element {
   return (
     <div className="relative">
@@ -37,6 +39,7 @@ function PasswordField({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onEnter()}
         placeholder={label}
+        autoFocus={autoFocus}
         className="w-full bg-th-bg-1 border border-th-bd-2 rounded-lg px-3 py-2 pr-9 text-sm text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent transition-colors"
       />
       <button
@@ -81,10 +84,15 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   const [activePanel, setActivePanel] = useState<'work-items' | 'code' | 'flow'>('work-items')
   const [linkedCode, setLinkedCode] = useState<Array<{ id: string; title: string; language: string; updated_at: number }>>([])
   const [linkedFlows, setLinkedFlows] = useState<Array<{ id: string; title: string; updated_at: number }>>([])
+  const [allCode, setAllCode] = useState<Array<{ id: string; title: string; language: string; updated_at: number }>>([])
+  const [allFlows, setAllFlows] = useState<Array<{ id: string; title: string; updated_at: number }>>([])
+  const [blockSearch, setBlockSearch] = useState('')
+  const [removeTarget, setRemoveTarget] = useState<{ type: 'code' | 'flow'; id: string; title: string } | null>(null)
 
   const titleRef = useRef('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingContent = useRef<any>(null)
+  const unlinkingRef = useRef(new Set<string>())
 
   const editor = useEditor({
     extensions: [
@@ -110,6 +118,8 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     loadWorkItems()
     loadLinkedCode()
     loadLinkedFlows()
+    loadAllCode()
+    loadAllFlows()
     window.api?.ado.isConfigured().then(setAdoConfigured)
   }, [noteId])
 
@@ -136,8 +146,55 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
       if (blob) insertImageBlob(blob)
     }
 
-    const handleDrop = (e: DragEvent): void => {
+    const handleDrop = async (e: DragEvent): Promise<void> => {
       if (!editor) return
+
+      // Handle embedded code/flow block drag-and-drop
+      const embedData = e.dataTransfer?.getData('application/cowork-embed')
+      if (embedData) {
+        try {
+          const { pos: from, nodeSize } = JSON.parse(embedData) as { pos: number; nodeSize: number }
+          const dropResult = editor.view.posAtCoords({ left: e.clientX, top: e.clientY })
+          if (dropResult) {
+            e.preventDefault()
+            const to = from + nodeSize
+            const embedNode = editor.state.doc.nodeAt(from)
+            if (embedNode) {
+              // After deleting the node, positions after it shift left by nodeSize
+              const insertPos = dropResult.pos > from ? dropResult.pos - nodeSize : dropResult.pos
+              editor.view.dispatch(
+                editor.state.tr.delete(from, to).insert(insertPos, embedNode)
+              )
+            }
+          }
+        } catch { /* ignore malformed data */ }
+        return
+      }
+
+      // Handle sidebar panel block drag (insert embed from global list)
+      const sidebarData = e.dataTransfer?.getData('application/cowork-sidebar')
+      if (sidebarData) {
+        try {
+          const { entityType, id } = JSON.parse(sidebarData) as { entityType: 'code' | 'flow'; id: string }
+          const dropResult = editor.view.posAtCoords({ left: e.clientX, top: e.clientY })
+          const pos = dropResult?.pos ?? editor.state.doc.content.size
+          e.preventDefault()
+          if (entityType === 'code') {
+            editor.chain().insertContentAt(pos, { type: 'codeEmbed', attrs: { blockId: id } }).run()
+            await window.api?.code.linkNote(id, noteId)
+            await loadLinkedCode()
+            await loadAllCode()
+          } else {
+            editor.chain().insertContentAt(pos, { type: 'flowEmbed', attrs: { flowId: id } }).run()
+            await window.api?.flows.linkNote(id, noteId)
+            await loadLinkedFlows()
+            await loadAllFlows()
+          }
+        } catch { /* ignore malformed */ }
+        return
+      }
+
+      // Handle external image file drops
       const files = Array.from(e.dataTransfer?.files || [])
       const imageFile = files.find((f) => f.type.startsWith('image/'))
       if (!imageFile) return
@@ -145,13 +202,65 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
       insertImageBlob(imageFile)
     }
 
+    const handleDragOver = (e: DragEvent): void => {
+      // Allow drops for external files and our custom embed/sidebar drags
+      if (
+        e.dataTransfer?.types.includes('Files') ||
+        e.dataTransfer?.types.includes('application/cowork-embed') ||
+        e.dataTransfer?.types.includes('application/cowork-sidebar')
+      ) {
+        e.preventDefault()
+      }
+    }
+
     window.addEventListener('paste', handlePaste)
     window.addEventListener('drop', handleDrop)
-    window.addEventListener('dragover', (e) => e.preventDefault())
+    window.addEventListener('dragover', handleDragOver)
     return () => {
       window.removeEventListener('paste', handlePaste)
       window.removeEventListener('drop', handleDrop)
+      window.removeEventListener('dragover', handleDragOver)
     }
+  }, [editor])
+
+  // Sync "In This Note" when embed nodes are removed via the editor (keyboard delete, etc.)
+  useEffect(() => {
+    if (!editor) return
+    const handleUpdate = (): void => {
+      const doc = editor.getJSON()
+      const codeIds = new Set<string>()
+      const flowIds = new Set<string>()
+      const walk = (node: any): void => {
+        if (node.type === 'codeEmbed' && node.attrs?.blockId) codeIds.add(node.attrs.blockId)
+        if (node.type === 'flowEmbed' && node.attrs?.flowId) flowIds.add(node.attrs.flowId)
+        ;(node.content || []).forEach(walk)
+      }
+      walk(doc)
+
+      setLinkedCode((prev) => {
+        const removed = prev.filter((b) => !codeIds.has(b.id) && !unlinkingRef.current.has(b.id))
+        if (!removed.length) return prev
+        removed.forEach((b) => window.api?.code.unlinkNote(b.id))
+        setAllCode((all) => {
+          const existing = new Set(all.map((a) => a.id))
+          return [...all, ...removed.filter((b) => !existing.has(b.id))]
+        })
+        return prev.filter((b) => codeIds.has(b.id))
+      })
+
+      setLinkedFlows((prev) => {
+        const removed = prev.filter((f) => !flowIds.has(f.id) && !unlinkingRef.current.has(f.id))
+        if (!removed.length) return prev
+        removed.forEach((f) => window.api?.flows.unlinkNote(f.id))
+        setAllFlows((all) => {
+          const existing = new Set(all.map((a) => a.id))
+          return [...all, ...removed.filter((f) => !existing.has(f.id))]
+        })
+        return prev.filter((f) => flowIds.has(f.id))
+      })
+    }
+    editor.on('update', handleUpdate)
+    return () => { editor.off('update', handleUpdate) }
   }, [editor])
 
   useEffect(() => {
@@ -209,6 +318,16 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     setLinkedFlows(flows || [])
   }
 
+  async function loadAllCode(): Promise<void> {
+    const blocks = await window.api?.code.getAll()
+    setAllCode(blocks || [])
+  }
+
+  async function loadAllFlows(): Promise<void> {
+    const flows = await window.api?.flows.getAll()
+    setAllFlows(flows || [])
+  }
+
   async function createLinkedCode(): Promise<void> {
     const block = await window.api?.code.create({ title: 'Untitled', noteId })
     if (block) {
@@ -237,6 +356,81 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     if (!flow) return
     setLinkedFlows((prev) => [...prev, flow])
     editor?.chain().focus().insertContent({ type: 'flowEmbed', attrs: { flowId: flow.id } }).run()
+  }
+
+  /** Remove a codeEmbed / flowEmbed node from the TipTap doc without triggering the sync handler */
+  const removeEmbedFromEditor = (type: 'code' | 'flow', id: string): void => {
+    if (!editor) return
+    // Only recurse into nodes that have children — never add `content` to leaf nodes
+    const strip = (node: any): any => {
+      if (!node.content) return node
+      return {
+        ...node,
+        content: node.content
+          .filter((n: any) =>
+            !((type === 'code' && n.type === 'codeEmbed' && n.attrs?.blockId === id) ||
+              (type === 'flow' && n.type === 'flowEmbed' && n.attrs?.flowId === id))
+          )
+          .map(strip),
+      }
+    }
+    const newDoc = strip(editor.getJSON())
+    unlinkingRef.current.add(id)
+    editor.commands.setContent(newDoc, false)
+    scheduleSave(titleRef.current, newDoc)
+    unlinkingRef.current.delete(id)
+  }
+
+  /** Called when the X button is clicked on an "In This Note" item */
+  const handleRemoveRequest = async (type: 'code' | 'flow', id: string, title: string): Promise<void> => {
+    let hasContent = false
+    if (type === 'code') {
+      const block = await window.api?.code.get(id)
+      hasContent = !!(block?.content && block.content.trim().length > 0)
+    } else {
+      const flow = await window.api?.flows.get(id)
+      try {
+        const parsed = JSON.parse(flow?.content_json || '{}')
+        hasContent = (parsed.nodes?.length ?? 0) > 0
+      } catch { /* treat as empty */ }
+    }
+    if (hasContent) {
+      setRemoveTarget({ type, id, title })
+    } else {
+      await performUnlink(type, id)
+    }
+  }
+
+  /** Unlink: remove embed from doc + clear DB note_id, keep block globally */
+  const performUnlink = async (type: 'code' | 'flow', id: string): Promise<void> => {
+    removeEmbedFromEditor(type, id)
+    if (type === 'code') {
+      await window.api?.code.unlinkNote(id)
+      const block = linkedCode.find((b) => b.id === id)
+      setLinkedCode((prev) => prev.filter((b) => b.id !== id))
+      if (block) setAllCode((prev) => [...prev, block])
+    } else {
+      await window.api?.flows.unlinkNote(id)
+      const flow = linkedFlows.find((f) => f.id === id)
+      setLinkedFlows((prev) => prev.filter((f) => f.id !== id))
+      if (flow) setAllFlows((prev) => [...prev, flow])
+    }
+  }
+
+  /** Delete globally: remove from doc + permanently delete block + close any open tab */
+  const performDelete = async (type: 'code' | 'flow', id: string): Promise<void> => {
+    removeEmbedFromEditor(type, id)
+    const existingTab = tabs.find((t) => t.entityType === type && t.entityId === id)
+    if (existingTab) closeTab(existingTab.id)
+    if (type === 'code') {
+      await window.api?.code.delete(id)
+      setLinkedCode((prev) => prev.filter((b) => b.id !== id))
+      setAllCode((prev) => prev.filter((b) => b.id !== id))
+    } else {
+      await window.api?.flows.delete(id)
+      setLinkedFlows((prev) => prev.filter((f) => f.id !== id))
+      setAllFlows((prev) => prev.filter((f) => f.id !== id))
+    }
   }
 
   const scheduleSave = useCallback((currentTitle: string, content: any) => {
@@ -292,6 +486,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   }
 
   const openPasswordModal = (): void => {
+    editor?.commands.blur()
     setPwNew(''); setPwConfirm(''); setPwCurrent(''); setPwModalError(null); setPwVisible(false)
     setShowPasswordModal(hasPassword ? 'manage' : 'set')
   }
@@ -402,8 +597,6 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     setWorkItems((prev) => prev.filter((i) => i.id !== workItemId))
   }
 
-  const effectiveDone = (i: WorkItem): boolean =>
-    i.is_ado && i.cached_state ? DONE_STATES.has(i.cached_state) : !!i.is_done
   const allDone = workItems.length > 0 && workItems.every(effectiveDone)
 
   const btn = (active: boolean): string =>
@@ -601,8 +794,8 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
             ] as const).map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActivePanel(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1 py-2 text-[10px] font-medium uppercase tracking-wide transition-colors border-b-2 ${
+                onClick={() => { setActivePanel(tab.id); setBlockSearch('') }}
+                className={`flex items-center justify-center gap-1 px-3 py-2 text-[10px] font-medium uppercase tracking-wide transition-colors border-b-2 ${
                   activePanel === tab.id
                     ? 'text-accent border-accent'
                     : 'text-th-tx-5 border-transparent hover:text-th-tx-3'
@@ -659,51 +852,14 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
                 <p className="text-xs text-th-tx-6 text-center py-6">No linked work items</p>
               ) : (
                 workItems.map((item) => (
-                  <div key={item.id} className="flex items-start gap-2 px-3 py-2 group hover:bg-th-bg-3 transition-all">
-                    {item.is_ado ? (
-                      <span className="flex-shrink-0 text-th-tx-6 mt-0.5 cursor-default" title="State managed by ADO">
-                        {effectiveDone(item) ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
-                      </span>
-                    ) : (
-                      <button onClick={() => toggleWorkItem(item.id)} className="flex-shrink-0 text-th-tx-6 hover:text-accent transition-colors mt-0.5">
-                        {item.is_done ? <CheckSquare size={13} className="text-accent" /> : <Square size={13} />}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => openTab({ entityType: 'work-item', entityId: item.item_number, title: item.cached_title || `#${item.item_number}` })}
-                      className={`flex-1 text-left min-w-0 transition-all hover:text-accent ${effectiveDone(item) ? 'opacity-40' : ''}`}
-                    >
-                      {item.cached_title ? (
-                        <>
-                          <p className="text-xs text-th-tx-2 truncate leading-snug">{item.cached_title}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {item.cached_type && (
-                              <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: TYPE_COLORS[item.cached_type] || '#666' }} />
-                            )}
-                            <span className="text-[10px] text-th-tx-6">#{item.item_number}</span>
-                            {item.cached_state && <span className="text-[10px] text-th-tx-6">· {item.cached_state}</span>}
-                          </div>
-                        </>
-                      ) : (
-                        <p className={`text-xs truncate ${item.is_done ? 'line-through text-th-tx-6' : 'text-th-tx-2'}`}>#{item.item_number}</p>
-                      )}
-                    </button>
-                    <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-                      {item.is_ado && adoStatus === 'error' && (
-                        <span title="ADO connection error — data may be stale" className="text-amber-500 p-0.5">
-                          <AlertTriangle size={11} />
-                        </span>
-                      )}
-                      <button onClick={() => window.api?.shell.openExternal(item.url)} title="Open in ADO" className="text-th-tx-6 group-hover:text-th-tx-5 transition-colors p-0.5">
-                        <ExternalLink size={11} />
-                      </button>
-                      {!isLocked && (
-                        <button onClick={() => removeWorkItem(item.id)} className="text-th-tx-6 group-hover:text-th-tx-5 hover:!text-red-400 transition-colors p-0.5">
-                          <X size={11} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <WorkItemRow
+                    key={item.id}
+                    item={item}
+                    adoStatus={adoStatus}
+                    onToggle={toggleWorkItem}
+                    onOpen={(i) => openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || `#${i.item_number}` })}
+                    onRemove={isLocked ? undefined : removeWorkItem}
+                  />
                 ))
               )}
             </div>
@@ -711,63 +867,187 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
 
           {/* Code panel */}
           {activePanel === 'code' && (<>
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-th-bd-1 flex-shrink-0">
-              <span className="text-xs text-th-tx-4 font-medium">Code blocks</span>
-              {!isLocked && (
-                <button onClick={createLinkedCode} title="New code block" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
-                  <Plus size={12} />
-                </button>
-              )}
+            <div className="px-3 py-2 border-b border-th-bd-1 flex-shrink-0">
+              <input
+                value={blockSearch}
+                onChange={(e) => setBlockSearch(e.target.value)}
+                placeholder="Search…"
+                className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
+              />
             </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {linkedCode.length === 0 ? (
-                <p className="text-xs text-th-tx-6 text-center py-6">No code blocks linked to this note</p>
-              ) : (
-                linkedCode.map((block) => (
-                  <button
-                    key={block.id}
-                    onClick={() => openTab({ entityType: 'code', entityId: block.id, title: block.title || 'Untitled' })}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 group hover:bg-th-bg-3 transition-all text-left"
-                  >
-                    <Code2 size={13} className="text-th-tx-5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-th-tx-2 truncate group-hover:text-accent transition-colors">{block.title || 'Untitled'}</p>
-                      <p className="text-[10px] text-th-tx-6">{block.language}</p>
-                    </div>
-                  </button>
-                ))
+            <div className="flex-1 overflow-y-auto">
+              {/* In this note */}
+              {linkedCode.filter(b => !blockSearch || (b.title || 'Untitled').toLowerCase().includes(blockSearch.toLowerCase())).length > 0 && (
+                <>
+                  <p className="px-3 pt-2 pb-1 text-[10px] text-th-tx-6 uppercase tracking-wide">In this note</p>
+                  {linkedCode
+                    .filter(b => !blockSearch || (b.title || 'Untitled').toLowerCase().includes(blockSearch.toLowerCase()))
+                    .map((block) => (
+                      <div key={block.id} className="flex items-center gap-1 px-2 group">
+                        <button
+                          onClick={() => openTab({ entityType: 'code', entityId: block.id, title: block.title || 'Untitled' })}
+                          className="flex-1 flex items-center gap-2 px-1 py-2 rounded-md hover:bg-th-bg-3 transition-all text-left min-w-0"
+                        >
+                          <Code2 size={13} className="text-th-tx-5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-th-tx-2 truncate group-hover:text-accent transition-colors">{block.title || 'Untitled'}</p>
+                            <p className="text-[10px] text-th-tx-6">{block.language}</p>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleRemoveRequest('code', block.id, block.title || 'Untitled')}
+                          title="Remove from note"
+                          className="p-1 rounded text-th-tx-6 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                </>
+              )}
+              {/* All blocks — draggable into the note */}
+              {(() => {
+                const linkedIds = new Set(linkedCode.map(b => b.id))
+                const unlinked = allCode.filter(b =>
+                  !linkedIds.has(b.id) &&
+                  (!blockSearch || (b.title || 'Untitled').toLowerCase().includes(blockSearch.toLowerCase()))
+                )
+                if (!unlinked.length) return null
+                return (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] text-th-tx-6 uppercase tracking-wide">All — drag to insert</p>
+                    {unlinked.map((block) => (
+                      <div
+                        key={block.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/cowork-sidebar', JSON.stringify({ entityType: 'code', id: block.id }))
+                          e.dataTransfer.effectAllowed = 'copy'
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2 group hover:bg-th-bg-3 transition-all cursor-grab active:cursor-grabbing"
+                      >
+                        <Code2 size={13} className="text-th-tx-6 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-th-tx-4 truncate group-hover:text-th-tx-2 transition-colors">{block.title || 'Untitled'}</p>
+                          <p className="text-[10px] text-th-tx-6">{block.language}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )
+              })()}
+              {linkedCode.length === 0 && allCode.length === 0 && (
+                <p className="text-xs text-th-tx-6 text-center py-6">No code blocks yet</p>
               )}
             </div>
           </>)}
 
           {/* Flow panel */}
           {activePanel === 'flow' && (<>
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-th-bd-1 flex-shrink-0">
-              <span className="text-xs text-th-tx-4 font-medium">Flows</span>
-              {!isLocked && (
-                <button onClick={createLinkedFlow} title="New flow" className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all">
-                  <Plus size={12} />
-                </button>
-              )}
+            <div className="px-3 py-2 border-b border-th-bd-1 flex-shrink-0">
+              <input
+                value={blockSearch}
+                onChange={(e) => setBlockSearch(e.target.value)}
+                placeholder="Search…"
+                className="w-full bg-th-bg-3 border border-th-bd-2 rounded px-2 py-1 text-xs text-th-tx-1 placeholder-th-tx-5 outline-none focus:border-accent"
+              />
             </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {linkedFlows.length === 0 ? (
-                <p className="text-xs text-th-tx-6 text-center py-6">No flows linked to this note</p>
-              ) : (
-                linkedFlows.map((flow) => (
-                  <button
-                    key={flow.id}
-                    onClick={() => openTab({ entityType: 'flow', entityId: flow.id, title: flow.title || 'Untitled' })}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 group hover:bg-th-bg-3 transition-all text-left"
-                  >
-                    <GitBranch size={13} className="text-th-tx-5 flex-shrink-0" />
-                    <p className="text-xs text-th-tx-2 truncate group-hover:text-accent transition-colors">{flow.title || 'Untitled'}</p>
-                  </button>
-                ))
+            <div className="flex-1 overflow-y-auto">
+              {/* In this note */}
+              {linkedFlows.filter(f => !blockSearch || (f.title || 'Untitled').toLowerCase().includes(blockSearch.toLowerCase())).length > 0 && (
+                <>
+                  <p className="px-3 pt-2 pb-1 text-[10px] text-th-tx-6 uppercase tracking-wide">In this note</p>
+                  {linkedFlows
+                    .filter(f => !blockSearch || (f.title || 'Untitled').toLowerCase().includes(blockSearch.toLowerCase()))
+                    .map((flow) => (
+                      <div key={flow.id} className="flex items-center gap-1 px-2 group">
+                        <button
+                          onClick={() => openTab({ entityType: 'flow', entityId: flow.id, title: flow.title || 'Untitled' })}
+                          className="flex-1 flex items-center gap-2 px-1 py-2 rounded-md hover:bg-th-bg-3 transition-all text-left min-w-0"
+                        >
+                          <GitBranch size={13} className="text-th-tx-5 flex-shrink-0" />
+                          <p className="text-xs text-th-tx-2 truncate group-hover:text-accent transition-colors">{flow.title || 'Untitled'}</p>
+                        </button>
+                        <button
+                          onClick={() => handleRemoveRequest('flow', flow.id, flow.title || 'Untitled')}
+                          title="Remove from note"
+                          className="p-1 rounded text-th-tx-6 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                </>
+              )}
+              {/* All flows — draggable into the note */}
+              {(() => {
+                const linkedIds = new Set(linkedFlows.map(f => f.id))
+                const unlinked = allFlows.filter(f =>
+                  !linkedIds.has(f.id) &&
+                  (!blockSearch || (f.title || 'Untitled').toLowerCase().includes(blockSearch.toLowerCase()))
+                )
+                if (!unlinked.length) return null
+                return (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] text-th-tx-6 uppercase tracking-wide">All — drag to insert</p>
+                    {unlinked.map((flow) => (
+                      <div
+                        key={flow.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/cowork-sidebar', JSON.stringify({ entityType: 'flow', id: flow.id }))
+                          e.dataTransfer.effectAllowed = 'copy'
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2 group hover:bg-th-bg-3 transition-all cursor-grab active:cursor-grabbing"
+                      >
+                        <GitBranch size={13} className="text-th-tx-6 flex-shrink-0" />
+                        <p className="text-xs text-th-tx-4 truncate group-hover:text-th-tx-2 transition-colors">{flow.title || 'Untitled'}</p>
+                      </div>
+                    ))}
+                  </>
+                )
+              })()}
+              {linkedFlows.length === 0 && allFlows.length === 0 && (
+                <p className="text-xs text-th-tx-6 text-center py-6">No flows yet</p>
               )}
             </div>
           </>)}
 
+        </div>
+      )}
+
+      {/* ── Remove embed modal ────────────────────────────────────────── */}
+      {removeTarget && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setRemoveTarget(null)}
+        >
+          <div className="bg-th-bg-3 border border-th-bd-1 rounded-2xl w-80 p-6 shadow-2xl flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-th-tx-1">Remove from note</h3>
+            <p className="text-xs text-th-tx-4 -mt-1">
+              <span className="font-medium text-th-tx-2">"{removeTarget.title}"</span> has content. What would you like to do?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={async () => { await performUnlink(removeTarget.type, removeTarget.id); setRemoveTarget(null) }}
+                className="py-2 rounded-lg text-xs font-medium text-th-tx-1 bg-th-bg-5 hover:bg-th-bg-6 transition-colors"
+              >
+                Unlink from note — keep globally
+              </button>
+              <button
+                onClick={async () => { await performDelete(removeTarget.type, removeTarget.id); setRemoveTarget(null) }}
+                className="py-2 rounded-lg text-xs font-medium text-red-400 bg-th-danger hover:opacity-80 transition-opacity"
+              >
+                Delete globally
+              </button>
+              <button
+                onClick={() => setRemoveTarget(null)}
+                className="py-2 rounded-lg text-xs text-th-tx-5 hover:text-th-tx-3 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -851,7 +1131,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
                   <h3 className="text-sm font-semibold text-th-tx-1">Set password</h3>
                 </div>
                 <p className="text-xs text-th-tx-5 -mt-1">Content will be encrypted and only accessible with this password.</p>
-                <PasswordField label="New password" value={pwNew} onChange={setPwNew} visible={pwVisible} onToggle={() => setPwVisible(v => !v)} onEnter={() => {}} />
+                <PasswordField label="New password" value={pwNew} onChange={setPwNew} visible={pwVisible} onToggle={() => setPwVisible(v => !v)} onEnter={() => {}} autoFocus />
                 <PasswordField label="Confirm password" value={pwConfirm} onChange={setPwConfirm} visible={pwVisible} onToggle={() => setPwVisible(v => !v)} onEnter={handleSetPassword} />
                 {pwModalError && <p className="text-xs text-red-400">{pwModalError}</p>}
                 <div className="flex gap-2 mt-1">
@@ -869,7 +1149,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
                 {/* Change password */}
                 <div className="flex flex-col gap-2 pb-4 border-b border-th-bd-1">
                   <p className="text-xs text-th-tx-4">Change password</p>
-                  <PasswordField label="New password" value={pwNew} onChange={setPwNew} visible={pwVisible} onToggle={() => setPwVisible(v => !v)} onEnter={() => {}} />
+                  <PasswordField label="New password" value={pwNew} onChange={setPwNew} visible={pwVisible} onToggle={() => setPwVisible(v => !v)} onEnter={() => {}} autoFocus />
                   <PasswordField label="Confirm password" value={pwConfirm} onChange={setPwConfirm} visible={pwVisible} onToggle={() => setPwVisible(v => !v)} onEnter={handleChangePassword} />
                   <button onClick={handleChangePassword} className="py-2 rounded-lg text-xs font-semibold text-black bg-accent hover:bg-accent-hover transition-colors">Update password</button>
                 </div>

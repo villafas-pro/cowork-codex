@@ -14,16 +14,17 @@ import ReactFlow, {
   Node,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { GitBranch, ExternalLink, X, Plus, Square, Circle, Diamond, Type, Minus } from 'lucide-react'
+import { GitBranch, ExternalLink, X, Plus, Square, Circle, Diamond, Type, Minus, GripVertical } from 'lucide-react'
 import { useAppStore } from '../../../store/appStore'
 import { nodeTypes } from '../flow/FlowNodeTypes'
 
 type NodeShapeType = 'rect' | 'circle' | 'diamond' | 'text'
 
-function FlowEmbedInner({ flowId, onDelete, selected }: {
+function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
   flowId: string
   onDelete: () => void
   selected: boolean
+  onGripMouseDown: () => void
 }): React.JSX.Element {
   const { openTab } = useAppStore()
 
@@ -35,9 +36,42 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
 
   const titleRef = useRef('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const embedFocusedRef = useRef(false)
 
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
+
+  // Use a ref so the wheel handler always reads the live focused value
+  // without needing to re-register on every focus change.
+  useEffect(() => {
+    const focusHandler = (e: MouseEvent): void => {
+      embedFocusedRef.current = !!wrapperRef.current?.contains(e.target as Node)
+    }
+    document.addEventListener('mousedown', focusHandler, true)
+
+    const wrapper = wrapperRef.current
+    const wheelHandler = (e: WheelEvent): void => {
+      if (embedFocusedRef.current) return
+      e.stopPropagation()
+      e.preventDefault()
+      let parent = wrapper?.parentElement
+      while (parent) {
+        const overflow = window.getComputedStyle(parent).overflowY
+        if ((overflow === 'auto' || overflow === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+          parent.scrollTop += e.deltaY
+          break
+        }
+        parent = parent.parentElement
+      }
+    }
+    wrapper?.addEventListener('wheel', wheelHandler, { capture: true, passive: false })
+
+    return () => {
+      document.removeEventListener('mousedown', focusHandler, true)
+      wrapper?.removeEventListener('wheel', wheelHandler, true)
+    }
+  }, [])
 
   useEffect(() => {
     if (!flowId) return
@@ -165,12 +199,18 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
 
   return (
     <div
+      ref={wrapperRef}
       className={`my-3 rounded-lg border overflow-hidden transition-all ${selected ? 'border-accent shadow-[0_0_0_1px_#e8b800]' : 'border-th-bd-2'}`}
       contentEditable={false}
       onKeyDown={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-th-bg-2 border-b border-th-bd-1">
+      <div className="flex items-center gap-2 px-3 py-2 bg-th-bg-2 border-b border-th-bd-1 select-none">
+        <GripVertical
+          size={12}
+          className="text-th-tx-6 hover:text-th-tx-4 flex-shrink-0 cursor-grab active:cursor-grabbing"
+          onMouseDown={onGripMouseDown}
+        />
         <GitBranch size={12} className="text-th-tx-5 flex-shrink-0" />
         <input
           value={title}
@@ -227,8 +267,8 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
       </div>
 
       {/* Canvas */}
-      {loaded && (
-        <div style={{ height: 300, position: 'relative' }}>
+      {loaded ? (
+        <div style={{ height: 300, position: 'relative' }} onDragStart={(e) => e.stopPropagation()}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -278,9 +318,7 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
             </div>
           )}
         </div>
-      )}
-
-      {!loaded && (
+      ) : (
         <div className="h-[300px] flex items-center justify-center" style={{ background: '#181818' }}>
           <span className="text-xs text-th-tx-6">Loading…</span>
         </div>
@@ -289,12 +327,40 @@ function FlowEmbedInner({ flowId, onDelete, selected }: {
   )
 }
 
-export default function FlowEmbedView({ node, deleteNode, selected }: NodeViewProps): React.JSX.Element {
+export default function FlowEmbedView({ node, deleteNode, selected, getPos, editor }: NodeViewProps): React.JSX.Element {
   const { flowId } = node.attrs
+  const dragFromGrip = useRef(false)
+
+  useEffect(() => {
+    const editorDom = editor.view.dom
+    const handler = (e: DragEvent): void => {
+      const pos = getPos()
+      if (pos === undefined) return
+      if (e.target !== editor.view.nodeDOM(pos)) return
+
+      if (!dragFromGrip.current) {
+        e.preventDefault()
+        return
+      }
+      dragFromGrip.current = false
+      if (!e.dataTransfer) return
+      e.dataTransfer.clearData()
+      e.dataTransfer.setData('application/cowork-embed', JSON.stringify({ pos, nodeSize: node.nodeSize }))
+      e.dataTransfer.effectAllowed = 'move'
+    }
+    editorDom.addEventListener('dragstart', handler, true)
+    return () => editorDom.removeEventListener('dragstart', handler, true)
+  }, [editor, getPos, node.nodeSize])
+
   return (
     <NodeViewWrapper>
       <ReactFlowProvider>
-        <FlowEmbedInner flowId={flowId} onDelete={deleteNode} selected={!!selected} />
+        <FlowEmbedInner
+          flowId={flowId}
+          onDelete={deleteNode}
+          selected={!!selected}
+          onGripMouseDown={() => { dragFromGrip.current = true }}
+        />
       </ReactFlowProvider>
     </NodeViewWrapper>
   )

@@ -52,7 +52,8 @@ const api = {
       ipcRenderer.invoke('code:import', sourceId, targetNoteId, mode),
     getSyncLocations: (syncGroupId: string) =>
       ipcRenderer.invoke('code:getSyncLocations', syncGroupId),
-    unlinkNote: (id: string) => ipcRenderer.invoke('code:unlinkNote', id)
+    unlinkNote: (id: string) => ipcRenderer.invoke('code:unlinkNote', id),
+    linkNote: (codeId: string, noteId: string) => ipcRenderer.invoke('code:linkNote', codeId, noteId)
   },
 
   // Flows
@@ -64,7 +65,8 @@ const api = {
     update: (id: string, data: object) => ipcRenderer.invoke('flows:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('flows:delete', id),
     togglePin: (id: string) => ipcRenderer.invoke('flows:togglePin', id),
-    unlinkNote: (id: string) => ipcRenderer.invoke('flows:unlinkNote', id)
+    unlinkNote: (id: string) => ipcRenderer.invoke('flows:unlinkNote', id),
+    linkNote: (flowId: string, noteId: string) => ipcRenderer.invoke('flows:linkNote', flowId, noteId)
   },
 
   // App / Settings

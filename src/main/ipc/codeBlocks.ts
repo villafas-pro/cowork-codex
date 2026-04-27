@@ -118,6 +118,12 @@ export function registerCodeBlockHandlers(): void {
     return { success: true }
   })
 
+  ipcMain.handle('code:linkNote', (_, codeId: string, noteId: string) => {
+    const db = getDb()
+    db.prepare('UPDATE code_blocks SET note_id = ?, updated_at = ? WHERE id = ?').run(noteId, Date.now(), codeId)
+    return { success: true }
+  })
+
   // Get all blocks in a sync group
   ipcMain.handle('code:getSyncLocations', (_, syncGroupId: string) => {
     const db = getDb()
