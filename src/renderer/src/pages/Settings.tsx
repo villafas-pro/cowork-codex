@@ -134,7 +134,7 @@ export default function Settings(): React.JSX.Element {
               <input
                 value={orgUrl}
                 onChange={(e) => setOrgUrl(e.target.value)}
-                placeholder="https://dev.azure.com/YourOrg"
+                placeholder="https://dev.azure.com/your-organization"
                 className={inputClass}
               />
             </div>
@@ -144,7 +144,7 @@ export default function Settings(): React.JSX.Element {
               <input
                 value={project}
                 onChange={(e) => setProject(e.target.value)}
-                placeholder="Questica"
+                placeholder="your-project"
                 className={inputClass}
               />
             </div>
