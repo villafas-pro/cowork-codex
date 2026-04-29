@@ -206,9 +206,9 @@ export default function Home(): React.JSX.Element {
       </div>
 
       {/* Main two-column layout */}
-      <div className="flex flex-1 min-h-0 px-8 pb-8 gap-6">
+      <div className="flex flex-row-reverse flex-1 min-h-0 px-8 pb-8 gap-6">
 
-        {/* Left column: scrollable lists, capped width */}
+        {/* Right column: scrollable lists, capped width */}
         <div className="w-full max-w-[500px] flex-shrink-0 overflow-y-auto flex flex-col gap-8 pr-1">
 
           {/* Recently Opened */}
@@ -295,7 +295,7 @@ export default function Home(): React.JSX.Element {
 
         {/* Right column: scratch pad, flexes to remaining space */}
         <div className="flex-1 min-w-0 flex flex-col">
-          <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider mb-3">Quick Scratch Pad</h2>
+          <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider mb-3 py-1">Quick Scratch Pad</h2>
           <div className="flex-1 bg-th-bg-4 border border-th-bd-2 rounded-xl overflow-hidden flex flex-col">
             {/* Compact toolbar */}
             <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#2e2e2e] flex-shrink-0">
