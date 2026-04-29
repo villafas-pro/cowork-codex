@@ -93,6 +93,10 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingContent = useRef<any>(null)
   const unlinkingRef = useRef(new Set<string>())
+  // Guard: prevent onUpdate from saving before loadNote() has finished populating
+  // the editor. Without this, TipTap's initialisation can fire onUpdate with an
+  // empty document and overwrite real content (race with the async IPC call).
+  const noteLoadedRef = useRef(false)
 
   const editor = useEditor({
     extensions: [
@@ -108,11 +112,13 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     ],
     content: '',
     onUpdate: ({ editor }) => {
+      if (!noteLoadedRef.current) return
       scheduleSave(titleRef.current, editor.getJSON())
     }
   })
 
   useEffect(() => {
+    noteLoadedRef.current = false
     pendingContent.current = null
     loadNote()
     loadWorkItems()
@@ -287,6 +293,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
       editor?.commands.setContent({}, false)
       editor?.setEditable(false)
       updateTabTitle(noteId, t || 'Untitled')
+      noteLoadedRef.current = true
       return
     }
     editor?.setEditable(!locked)
@@ -301,6 +308,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
         }
       } catch { /* plain text fallback */ }
     }
+    noteLoadedRef.current = true
   }
 
   async function loadWorkItems(): Promise<void> {
