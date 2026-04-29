@@ -87,8 +87,10 @@ function createQuickCaptureWindow(): void {
 }
 
 function createTray(): void {
-  // Use a simple placeholder icon for now
-  const icon = nativeImage.createEmpty()
+  const iconPath = is.dev
+    ? join(__dirname, '../../resources/icon.ico')
+    : join(process.resourcesPath, 'icon.ico')
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
   tray = new Tray(icon)
 
   const contextMenu = Menu.buildFromTemplate([
