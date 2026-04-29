@@ -161,10 +161,16 @@ export function registerNoteHandlers(): void {
     }
 
     // Plain note update
-    _saveVersion(db, id, note.content, now)
-
     const newTitle = data.title ?? note.title
     const newContent = data.content ?? note.content
+
+    // Nothing changed — skip the write and don't create a spurious version snapshot
+    if (newContent === note.content && newTitle === note.title) {
+      return db.prepare('SELECT * FROM notes WHERE id = ?').get(id)
+    }
+
+    _saveVersion(db, id, note.content, now)
+
     db.prepare('UPDATE notes SET title = ?, content = ?, updated_at = ?, is_pinned = ? WHERE id = ?')
       .run(newTitle, newContent, now, note.is_pinned, id)
     db.prepare('INSERT OR REPLACE INTO notes_fts(id, title, content) VALUES (?, ?, ?)').run(id, newTitle, newContent)
@@ -341,11 +347,14 @@ export function registerNoteHandlers(): void {
 import type Database from 'better-sqlite3'
 
 function _saveVersion(db: Database.Database, noteId: string, currentContent: string, now: number): void {
+  // Never snapshot empty or uninitialized content — these are not meaningful versions
+  if (!currentContent || currentContent === '{}') return
+
   const lastVersion = db
     .prepare('SELECT created_at, content FROM note_versions WHERE note_id = ? ORDER BY created_at DESC LIMIT 1')
     .get(noteId) as { created_at: number; content: string } | undefined
 
-  // Don't snapshot if content hasn't changed
+  // Don't snapshot if content hasn't changed since the last version
   if (lastVersion && lastVersion.content === currentContent) return
 
   const fiveMinutes = 5 * 60 * 1000
