@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Loader, User, Plus, ExternalLink, AlertCircle, Layers, X } from 'lucide-react'
+import { Search, Loader, User, Plus, ExternalLink, AlertCircle, Layers, X, FileText, Code2, Workflow } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 import { TYPE_COLORS, STATE_COLORS } from '../lib/workItemUtils'
 
@@ -9,6 +9,7 @@ interface WorkItemResult {
   type: string
   state: string
   assignedTo: string
+  iterationPath: string
   url: string
 }
 
@@ -27,6 +28,8 @@ interface Props {
   onAdd: (url: string, itemNumber: string) => void
   onCancel?: () => void
   placeholder?: string
+  /** 'link' (default): show hover popup + Plus link button. 'search': show sprint + create-linked buttons, no hover popup. */
+  mode?: 'link' | 'search'
 }
 
 const WORK_ITEM_TYPES = ['', 'Bug', 'Task', 'User Story', 'Feature', 'Epic', 'Test Case']
@@ -42,8 +45,10 @@ function stripHtml(html: string): string {
 
 const POPUP_WIDTH = 288
 
-export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX.Element {
+export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Props): React.JSX.Element {
   const { openTab } = useAppStore()
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [creating, setCreating] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [assignedToMe, setAssignedToMe] = useState(false)
   const [type, setType] = useState('')
@@ -55,7 +60,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
 
   // Hover popup state
   const [hoveredId, setHoveredId] = useState<number | null>(null)
-  const [popupPos, setPopupPos] = useState({ top: 0, right: 0 })
+  const [popupPos, setPopupPos] = useState<{ top: number; left?: number; right?: number }>({ top: 0, right: 0 })
   const [details, setDetails] = useState<CachedDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [detailsVisible, setDetailsVisible] = useState(false)
@@ -118,15 +123,19 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
   }
 
   const handleRowEnter = useCallback((item: WorkItemResult, el: HTMLDivElement) => {
+    if (mode === 'search') return
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
     if (enterTimer.current) clearTimeout(enterTimer.current)
 
-    // Position popup to the left of the panel
     const rect = el.getBoundingClientRect()
     const top = Math.min(rect.top, window.innerHeight - 280)
-    const right = window.innerWidth - rect.left + 8
 
-    setPopupPos({ top, right })
+    // If there's room to the left, show popup there; otherwise show to the right
+    if (rect.left > POPUP_WIDTH + 16) {
+      setPopupPos({ top, right: window.innerWidth - rect.left + 8 })
+    } else {
+      setPopupPos({ top, left: rect.right + 8 })
+    }
     setHoveredId(item.id)
     setDetails(null)
     setDetailsVisible(false)
@@ -144,7 +153,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
       } catch { /* silently fail */ }
       finally { setDetailsLoading(false) }
     }, 280)
-  }, [])
+  }, [mode])
 
   const handleRowLeave = useCallback(() => {
     if (enterTimer.current) clearTimeout(enterTimer.current)
@@ -239,38 +248,101 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
 
         {results.length > 0 && (
           <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-            {results.map((item) => (
-              <div
-                key={item.id}
-                ref={(el) => { if (el && hoveredId === item.id) { /* already tracking */ } }}
-                onMouseEnter={(e) => handleRowEnter(item, e.currentTarget)}
-                onMouseLeave={handleRowLeave}
-                onClick={() => openTab({ entityType: 'work-item', entityId: String(item.id), title: `#${item.id}` })}
-                className="flex items-center gap-1.5 px-2 py-2 rounded-lg hover:bg-th-bg-5 transition-all group border border-transparent hover:border-th-bd-2 cursor-pointer"
-              >
-                <span
-                  className="w-2 h-2 rounded-sm flex-shrink-0 mt-0.5"
-                  style={{ background: TYPE_COLORS[item.type] || '#555' }}
-                />
-                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                  <span className="text-xs text-th-tx-1 truncate">{item.title}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-th-tx-5">#{item.id}</span>
-                    <span className="text-[10px] text-th-tx-6">{item.state}</span>
-                    {item.assignedTo && (
-                      <span className="text-[10px] text-th-tx-6 truncate">{item.assignedTo.split(' ')[0]}</span>
+            {results.map((item) => {
+              const sprint = item.iterationPath?.includes('\\') ? item.iterationPath.split('\\').pop() : null
+              const isExpanded = expandedId === item.id
+
+              return (
+                <div key={item.id} className="flex flex-col rounded-lg border border-transparent hover:border-th-bd-2 hover:bg-th-bg-5 transition-all group">
+                  <div
+                    ref={(el) => { if (el && hoveredId === item.id) { /* already tracking */ } }}
+                    onMouseEnter={(e) => handleRowEnter(item, e.currentTarget)}
+                    onMouseLeave={handleRowLeave}
+                    onClick={() => openTab({ entityType: 'work-item', entityId: String(item.id), title: `#${item.id}` })}
+                    className="flex items-center gap-1.5 px-2 py-2 cursor-pointer"
+                  >
+                    <span
+                      className="w-2 h-2 rounded-sm flex-shrink-0 mt-0.5"
+                      style={{ background: TYPE_COLORS[item.type] || '#555' }}
+                    />
+                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                      <span className="text-xs text-th-tx-1 truncate">{item.title}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-th-tx-5">#{item.id}</span>
+                        <span className="text-[10px] text-th-tx-6">{item.state}</span>
+                        {mode === 'search' && sprint && (
+                          <span className="text-[10px] text-th-tx-5 truncate">{sprint}</span>
+                        )}
+                        {mode === 'link' && item.assignedTo && (
+                          <span className="text-[10px] text-th-tx-6 truncate">{item.assignedTo.split(' ')[0]}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right-side action: link mode = Plus, search mode = expand toggle */}
+                    {mode === 'link' ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onAdd(item.url, String(item.id)) }}
+                        title="Link to current item"
+                        className="flex-shrink-0 p-1 rounded text-th-tx-6 hover:text-accent hover:bg-th-bg-6 transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : item.id) }}
+                        title="Create linked"
+                        className={`flex-shrink-0 p-1 rounded transition-all ${isExpanded ? 'text-accent bg-th-bg-6' : 'text-th-tx-6 hover:text-th-tx-3 opacity-0 group-hover:opacity-100'}`}
+                      >
+                        <Plus size={13} />
+                      </button>
                     )}
                   </div>
+
+                  {/* Create-linked panel (search mode only) */}
+                  {mode === 'search' && isExpanded && (
+                    <div className="flex items-center gap-1.5 px-2 pb-2 pt-0" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-[10px] text-th-tx-6 mr-0.5">Create linked:</span>
+                      {([
+                        { type: 'note' as const, label: 'Note', Icon: FileText },
+                        { type: 'code' as const, label: 'Code', Icon: Code2 },
+                        { type: 'flow' as const, label: 'Flow', Icon: Workflow },
+                      ]).map(({ type, label, Icon }) => (
+                        <button
+                          key={type}
+                          disabled={creating === String(item.id) + type}
+                          onClick={async () => {
+                            setCreating(String(item.id) + type)
+                            try {
+                              const title = item.title
+                              let entity: { id: string } | null | undefined
+                              if (type === 'note') entity = await window.api?.notes.create({ title })
+                              else if (type === 'code') entity = await window.api?.code.create({ title })
+                              else entity = await window.api?.flows.create({ title })
+                              if (entity) {
+                                // workItems.create(url, entityType, entityId) creates the work item locally if needed and links it
+                                await window.api?.workItems.create(item.url, type, entity.id)
+                                openTab({ entityType: type, entityId: entity.id, title })
+                              }
+                            } finally {
+                              setCreating(null)
+                              setExpandedId(null)
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border border-th-bd-2 text-th-tx-3 hover:text-th-tx-1 hover:border-th-bd-3 transition-all disabled:opacity-40"
+                        >
+                          {creating === String(item.id) + type
+                            ? <Loader size={10} className="animate-spin" />
+                            : <Icon size={10} />
+                          }
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onAdd(item.url, String(item.id)) }}
-                  title="Link to current item"
-                  className="flex-shrink-0 p-1 rounded text-th-tx-6 hover:text-accent hover:bg-th-bg-6 transition-all opacity-0 group-hover:opacity-100"
-                >
-                  <Plus size={13} />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -284,7 +356,7 @@ export default function WorkItemSearch({ onAdd, placeholder }: Props): React.JSX
           style={{
             position: 'fixed',
             top: popupPos.top,
-            right: popupPos.right,
+            ...(popupPos.right !== undefined ? { right: popupPos.right } : { left: popupPos.left }),
             width: POPUP_WIDTH,
             zIndex: 9999,
           }}

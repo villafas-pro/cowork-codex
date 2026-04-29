@@ -91,6 +91,7 @@ export default function WorkItems(): React.JSX.Element {
       {adoConfigured && (
         <div className="px-5 py-3 border-b border-th-bd-1 flex-shrink-0">
           <WorkItemSearch
+            mode="search"
             onAdd={(_url, itemNumber) => {
               openTab({ entityType: 'work-item', entityId: itemNumber, title: `#${itemNumber}` })
             }}

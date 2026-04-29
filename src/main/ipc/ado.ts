@@ -13,6 +13,7 @@ interface WorkItemResult {
   type: string
   state: string
   assignedTo: string
+  iterationPath: string
   url: string
 }
 
@@ -174,7 +175,8 @@ export function registerAdoHandlers(): void {
             'System.Title',
             'System.WorkItemType',
             'System.State',
-            'System.AssignedTo'
+            'System.AssignedTo',
+            'System.IterationPath'
           ]
         })
       })
@@ -194,6 +196,7 @@ export function registerAdoHandlers(): void {
           type: f['System.WorkItemType'] || '',
           state: f['System.State'] || '',
           assignedTo: typeof assignedTo === 'object' ? assignedTo?.displayName || '' : assignedTo || '',
+          iterationPath: f['System.IterationPath'] || '',
           url: `${config.orgUrl}/${encodeURIComponent(config.project)}/_workitems/edit/${f['System.Id']}`
         }
       })
