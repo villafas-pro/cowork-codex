@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { FileText, Clock, AlertCircle, Pin, Search, Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, ListChecks, Quote, CheckSquare } from 'lucide-react'
+import { FileText, Clock, CheckSquare, Search, Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, ListChecks, Quote, Code, GitBranch, Link } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -9,29 +9,26 @@ import TaskItem from '@tiptap/extension-task-item'
 import { useAppStore } from '../store/appStore'
 import { TYPE_COLORS, STATE_COLORS, DONE_STATES } from '../lib/workItemUtils'
 
-interface NoteItem {
+interface RecentItem {
   id: string
   title: string
   updated_at: number
-  is_pinned: number
-  linked_work_item_count: number
-  active_work_item_count: number
+  entityType: 'note' | 'code' | 'flow'
 }
 
-interface WorkItemSummary {
+interface DisplayWorkItem {
   item_number: string
-  cached_title: string | null
-  cached_type: string | null
-  cached_state: string | null
-  cached_assigned_to: string | null
-  is_ado: number
+  title: string
+  type: string | null
+  state: string | null
+  assigned_to: string | null
+  is_linked: boolean
 }
 
 export default function Home(): React.JSX.Element {
   const { openTab, setSearchOpen } = useAppStore()
-  const [recentNotes, setRecentNotes] = useState<NoteItem[]>([])
-  const [activeNotes, setActiveNotes] = useState<NoteItem[]>([])
-  const [openWorkItems, setOpenWorkItems] = useState<WorkItemSummary[]>([])
+  const [recentItems, setRecentItems] = useState<RecentItem[]>([])
+  const [workItems, setWorkItems] = useState<DisplayWorkItem[]>([])
   const scratchSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scratchLoaded = useRef(false)
   const pendingScratch = useRef<any>(null)
@@ -55,9 +52,9 @@ export default function Home(): React.JSX.Element {
   })
 
   useEffect(() => {
-    loadNotes()
+    loadRecentItems()
     loadScratch()
-    loadOpenWorkItems()
+    loadWorkItems()
   }, [])
 
   // Apply pending scratch content once editor is ready
@@ -88,21 +85,94 @@ export default function Home(): React.JSX.Element {
     }
   }
 
-  async function loadOpenWorkItems(): Promise<void> {
-    const all: WorkItemSummary[] = (await window.api?.workItems.getAll()) || []
-    const open = all.filter((wi) => {
-      if (wi.is_ado && wi.cached_state) return !DONE_STATES.has(wi.cached_state)
-      return true // non-ADO items without state always show
-    }).slice(0, 8)
-    setOpenWorkItems(open)
+  async function loadRecentItems(): Promise<void> {
+    const [notes, codeBlocks, flows] = await Promise.all([
+      window.api?.notes.getAll() ?? [],
+      window.api?.code.getAll() ?? [],
+      window.api?.flows.getAll() ?? [],
+    ])
+
+    const merged: RecentItem[] = [
+      ...(notes as any[]).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        updated_at: n.updated_at,
+        entityType: 'note' as const,
+      })),
+      ...(codeBlocks as any[]).map((c: any) => ({
+        id: c.id,
+        title: c.title,
+        updated_at: c.updated_at,
+        entityType: 'code' as const,
+      })),
+      ...(flows as any[]).map((f: any) => ({
+        id: f.id,
+        title: f.title,
+        updated_at: f.updated_at,
+        entityType: 'flow' as const,
+      })),
+    ]
+
+    merged.sort((a, b) => b.updated_at - a.updated_at)
+    setRecentItems(merged.slice(0, 5))
   }
 
-  async function loadNotes(): Promise<void> {
-    const all: NoteItem[] = (await window.api?.notes.getAll()) || []
-    const recent = [...all].sort((a, b) => b.updated_at - a.updated_at).slice(0, 8)
-    const active = all.filter((n) => n.active_work_item_count > 0 && n.is_pinned === 0).slice(0, 8)
-    setRecentNotes(recent)
-    setActiveNotes(active)
+  async function loadWorkItems(): Promise<void> {
+    // Load local linked items immediately so the UI isn't empty while ADO loads
+    const localAll: any[] = (await window.api?.workItems.getAll()) || []
+    const localOpen = localAll.filter((wi) => {
+      if (wi.is_ado && wi.cached_state) return !DONE_STATES.has(wi.cached_state)
+      return true
+    })
+
+    const localMap = new Map<string, boolean>()
+    const display: DisplayWorkItem[] = localOpen.map((wi) => {
+      localMap.set(wi.item_number, true)
+      return {
+        item_number: wi.item_number,
+        title: wi.cached_title || `#${wi.item_number}`,
+        type: wi.cached_type,
+        state: wi.cached_state,
+        assigned_to: wi.cached_assigned_to,
+        is_linked: true,
+      }
+    })
+
+    setWorkItems(display)
+
+    // Background: fetch ADO items assigned to me and merge in
+    try {
+      const adoResults: any[] = (await window.api?.ado.search({
+        search: '',
+        assignedToMe: true,
+        type: '',
+        state: '',
+      })) || []
+
+      if (adoResults.length > 0) {
+        const merged = [...display]
+        for (const item of adoResults) {
+          const idStr = String(item.id)
+          if (!localMap.has(idStr) && !DONE_STATES.has(item.state)) {
+            const assignedTo =
+              typeof item.assignedTo === 'string'
+                ? item.assignedTo
+                : (item.assignedTo as any)?.displayName || null
+            merged.push({
+              item_number: idStr,
+              title: item.title,
+              type: item.type || null,
+              state: item.state || null,
+              assigned_to: assignedTo,
+              is_linked: false,
+            })
+          }
+        }
+        setWorkItems(merged.slice(0, 10))
+      }
+    } catch {
+      // ADO not configured or unavailable — local items already shown
+    }
   }
 
   const formatDate = (ts: number): string => {
@@ -115,19 +185,11 @@ export default function Home(): React.JSX.Element {
     return d.toLocaleDateString()
   }
 
-  const NoteCard = ({ note }: { note: NoteItem }): React.JSX.Element => (
-    <button
-      onClick={() => openTab({ entityType: 'note', entityId: note.id, title: note.title })}
-      className="flex items-center gap-3 p-3 rounded-lg bg-th-bg-4 hover:bg-th-bg-6 border border-th-bd-2 hover:border-th-bd-3 transition-all text-left w-full group"
-    >
-      <FileText size={14} className="text-th-tx-4 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-th-tx-1 truncate">{note.title || 'Untitled'}</p>
-        <p className="text-xs text-th-tx-4 mt-0.5">{formatDate(note.updated_at)}</p>
-      </div>
-      {note.is_pinned === 1 && <Pin size={11} className="text-accent flex-shrink-0" />}
-    </button>
-  )
+  const ItemTypeIcon = ({ type }: { type: 'note' | 'code' | 'flow' }): React.JSX.Element => {
+    if (type === 'code') return <Code size={13} className="text-th-tx-4 flex-shrink-0" />
+    if (type === 'flow') return <GitBranch size={13} className="text-th-tx-4 flex-shrink-0" />
+    return <FileText size={13} className="text-th-tx-4 flex-shrink-0" />
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -143,91 +205,100 @@ export default function Home(): React.JSX.Element {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 pb-8">
-        <div className={`grid gap-8 max-w-5xl ${openWorkItems.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-          {/* Recently opened */}
+      {/* Main two-column layout */}
+      <div className="flex flex-1 min-h-0 px-8 pb-8 gap-6">
+
+        {/* Left column: scrollable lists, capped width */}
+        <div className="w-full max-w-[500px] flex-shrink-0 overflow-y-auto flex flex-col gap-8 pr-1">
+
+          {/* Recently Opened */}
           <section>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 sticky top-0 bg-th-bg-2 py-1 -mx-1 px-1 z-10">
               <Clock size={13} className="text-th-tx-4" />
               <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider">Recently Opened</h2>
             </div>
             <div className="flex flex-col gap-1.5">
-              {recentNotes.length === 0 ? (
-                <p className="text-xs text-th-tx-5 py-2">No notes yet</p>
+              {recentItems.length === 0 ? (
+                <p className="text-xs text-th-tx-5 py-2">Nothing yet</p>
               ) : (
-                recentNotes.map((note) => <NoteCard key={note.id} note={note} />)
+                recentItems.map((item) => (
+                  <button
+                    key={`${item.entityType}-${item.id}`}
+                    onClick={() => openTab({ entityType: item.entityType, entityId: item.id, title: item.title })}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-th-bg-4 hover:bg-th-bg-6 border border-th-bd-2 hover:border-th-bd-3 transition-all text-left w-full"
+                  >
+                    <ItemTypeIcon type={item.entityType} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-th-tx-1 truncate">{item.title || 'Untitled'}</p>
+                      <p className="text-xs text-th-tx-4 mt-0.5">{formatDate(item.updated_at)}</p>
+                    </div>
+                    {item.entityType !== 'note' && (
+                      <span className="text-[10px] text-th-tx-5 flex-shrink-0 capitalize">{item.entityType}</span>
+                    )}
+                  </button>
+                ))
               )}
             </div>
           </section>
 
-          {/* Still active */}
+          {/* My Work Items */}
           <section>
-            <div className="flex items-center gap-2 mb-3">
-              <AlertCircle size={13} className="text-th-tx-4" />
-              <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider">Still Active</h2>
+            <div className="flex items-center gap-2 mb-3 sticky top-0 bg-th-bg-2 py-1 -mx-1 px-1 z-10">
+              <CheckSquare size={13} className="text-th-tx-4" />
+              <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider">My Work Items</h2>
             </div>
             <div className="flex flex-col gap-1.5">
-              {activeNotes.length === 0 ? (
-                <p className="text-xs text-th-tx-5 py-2">All caught up</p>
+              {workItems.length === 0 ? (
+                <p className="text-xs text-th-tx-5 py-2">No open work items</p>
               ) : (
-                activeNotes.map((note) => <NoteCard key={note.id} note={note} />)
-              )}
-            </div>
-          </section>
-
-          {/* Open work items */}
-          {openWorkItems.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <CheckSquare size={13} className="text-th-tx-4" />
-                <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider">Open Work Items</h2>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {openWorkItems.map((wi) => {
-                  const typeColor = TYPE_COLORS[wi.cached_type || ''] || '#555'
-                  const stateColor = STATE_COLORS[wi.cached_state || ''] || '#888'
+                workItems.map((wi) => {
+                  const typeColor = TYPE_COLORS[wi.type || ''] || '#555'
+                  const stateColor = STATE_COLORS[wi.state || ''] || '#888'
                   return (
                     <button
                       key={wi.item_number}
-                      onClick={() => openTab({ entityType: 'work-item', entityId: wi.item_number, title: wi.cached_title || `#${wi.item_number}` })}
+                      onClick={() => openTab({ entityType: 'work-item', entityId: wi.item_number, title: wi.title })}
                       className="flex items-start gap-2.5 p-3 rounded-lg bg-th-bg-4 hover:bg-th-bg-6 border border-th-bd-2 hover:border-th-bd-3 transition-all text-left w-full"
                     >
                       <CheckSquare size={13} className="text-th-tx-6 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-th-tx-1 truncate">{wi.cached_title || `#${wi.item_number}`}</p>
+                        <p className="text-sm text-th-tx-1 truncate">{wi.title}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {wi.cached_type && (
-                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                              style={{ background: typeColor + '22', color: typeColor, border: `1px solid ${typeColor}44` }}>
-                              {wi.cached_type}
+                          {wi.type && (
+                            <span
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                              style={{ background: typeColor + '22', color: typeColor, border: `1px solid ${typeColor}44` }}
+                            >
+                              {wi.type}
                             </span>
                           )}
-                          {wi.cached_state && (
+                          {wi.state && (
                             <span className="text-[10px]" style={{ color: stateColor }}>
-                              {wi.cached_state}
+                              {wi.state}
                             </span>
                           )}
-                          {wi.cached_assigned_to && (
-                            <span className="text-[10px] text-th-tx-6 truncate">{wi.cached_assigned_to}</span>
+                          {wi.assigned_to && (
+                            <span className="text-[10px] text-th-tx-6 truncate">{wi.assigned_to}</span>
                           )}
                         </div>
                       </div>
+                      {wi.is_linked && (
+                        <Link size={11} className="text-th-tx-5 flex-shrink-0 mt-0.5" title="Linked in a note" />
+                      )}
                     </button>
                   )
-                })}
-              </div>
-            </section>
-          )}
+                })
+              )}
+            </div>
+          </section>
         </div>
 
-        {/* Quick Scratch Pad */}
-        <div className="mt-8 max-w-4xl">
-          <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider mb-3">
-            Quick Scratch Pad
-          </h2>
-          <div className="bg-th-bg-4 border border-th-bd-2 rounded-xl overflow-hidden">
+        {/* Right column: scratch pad, flexes to remaining space */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <h2 className="text-xs font-medium text-th-tx-4 uppercase tracking-wider mb-3">Quick Scratch Pad</h2>
+          <div className="flex-1 bg-th-bg-4 border border-th-bd-2 rounded-xl overflow-hidden flex flex-col">
             {/* Compact toolbar */}
-            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#2e2e2e]">
+            <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#2e2e2e] flex-shrink-0">
               {(
                 [
                   { icon: <Bold size={12} />, cmd: () => scratchEditor?.chain().focus().toggleBold().run(), active: !!scratchEditor?.isActive('bold'), title: 'Bold' },
@@ -255,14 +326,17 @@ export default function Home(): React.JSX.Element {
                 </button>
               ))}
               <div className="w-px h-3 bg-th-bd-2 mx-0.5" />
-              <button onClick={() => scratchEditor?.chain().focus().toggleBlockquote().run()} title="Blockquote"
-                className={`p-1 rounded transition-all ${scratchEditor?.isActive('blockquote') ? 'bg-th-bd-2 text-th-tx-1' : 'text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-6'}`}>
+              <button
+                onClick={() => scratchEditor?.chain().focus().toggleBlockquote().run()}
+                title="Blockquote"
+                className={`p-1 rounded transition-all ${scratchEditor?.isActive('blockquote') ? 'bg-th-bd-2 text-th-tx-1' : 'text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-6'}`}
+              >
                 <Quote size={12} />
               </button>
             </div>
             {/* Editor content */}
             <div
-              className="px-5 py-4 min-h-[120px] cursor-text"
+              className="flex-1 px-5 py-4 cursor-text overflow-y-auto"
               onClick={() => scratchEditor?.commands.focus()}
             >
               <EditorContent
@@ -272,6 +346,7 @@ export default function Home(): React.JSX.Element {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   )
