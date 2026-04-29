@@ -76,7 +76,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   const [pwVisible, setPwVisible] = useState(false)
   // Version history
   const [showHistory, setShowHistory] = useState(false)
-  const [versions, setVersions] = useState<Array<{ id: string; created_at: number; content_json: string }>>([])
+  const [versions, setVersions] = useState<Array<{ id: string; created_at: number; content: string }>>([])
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0)
   const [versionPreview, setVersionPreview] = useState('')
 
@@ -398,7 +398,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     } else {
       const flow = await window.api?.flows.get(id)
       try {
-        const parsed = JSON.parse(flow?.content_json || '{}')
+        const parsed = JSON.parse(flow?.content || '{}')
         hasContent = (parsed.nodes?.length ?? 0) > 0
       } catch { /* treat as empty */ }
     }
@@ -529,13 +529,13 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     if (!vers || vers.length === 0) return
     setVersions(vers)
     setSelectedVersionIdx(0)
-    setVersionPreview(extractText(vers[0].content_json))
+    setVersionPreview(extractText(vers[0].content))
     setShowHistory(true)
   }
 
   const selectVersion = (idx: number): void => {
     setSelectedVersionIdx(idx)
-    setVersionPreview(extractText(versions[idx].content_json))
+    setVersionPreview(extractText(versions[idx].content))
   }
 
   const restoreVersion = async (): Promise<void> => {
@@ -543,10 +543,10 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     if (!ver) return
     await window.api?.notes.update(noteId, {
       title: titleRef.current,
-      content: ver.content_json
+      content: ver.content
     })
     try {
-      const parsed = JSON.parse(ver.content_json)
+      const parsed = JSON.parse(ver.content)
       editor?.commands.setContent(parsed, false)
     } catch { /* ignore */ }
     setShowHistory(false)
