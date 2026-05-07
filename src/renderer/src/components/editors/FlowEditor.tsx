@@ -4,11 +4,13 @@ import ReactFlow, {
   addEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   Controls,
   Background,
   BackgroundVariant,
   MiniMap,
   Connection,
+  ConnectionMode,
   Edge,
   Node,
   Panel,
@@ -23,6 +25,7 @@ import WorkItemSearch from '../WorkItemSearch'
 import { type WorkItem, effectiveDone } from '../../lib/workItemUtils'
 import WorkItemRow from '../WorkItemRow'
 import { nodeTypes } from './flow/FlowNodeTypes'
+import { edgeTypes } from './flow/FlowEdgeTypes'
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
@@ -48,6 +51,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
 
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const reactFlowInstance = useReactFlow()
 
   // Load flow
   useEffect(() => {
@@ -76,7 +80,8 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
       try {
         const parsed = JSON.parse(flow.content_json)
         setNodes(parsed.nodes || [])
-        setEdges(parsed.edges || [])
+        // Ensure all edges use the custom type (for draggable midpoint)
+        setEdges((parsed.edges || []).map((e: Edge) => ({ ...e, type: 'custom' })))
       } catch { /* ignore */ }
     }
   }
@@ -137,6 +142,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     setEdges((eds) => {
       const newEdges = addEdge({
         ...params,
+        type: 'custom',
         style: { stroke: '#555', strokeWidth: 1.5 },
         markerEnd: { type: 'arrowclosed' as any, color: '#555' }
       }, eds)
@@ -170,10 +176,20 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
   const addNode = useCallback(() => {
     const id = `node-${Date.now()}`
     const label = selectedNodeType === 'diamond' ? 'Decision' : selectedNodeType === 'text' ? 'Label' : 'Node'
+
+    // Place new node at the center of the visible canvas
+    const wrapper = reactFlowWrapper.current
+    const center = wrapper
+      ? reactFlowInstance.screenToFlowPosition({
+          x: wrapper.getBoundingClientRect().left + wrapper.clientWidth / 2,
+          y: wrapper.getBoundingClientRect().top + wrapper.clientHeight / 2,
+        })
+      : { x: 200, y: 150 }
+
     const newNode: Node = {
       id,
       type: selectedNodeType,
-      position: { x: 200 + Math.random() * 100, y: 150 + Math.random() * 100 },
+      position: center,
       data: { label }
     }
     setNodes((nds) => {
@@ -181,7 +197,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
       scheduleSave(titleRef.current, updated, edges)
       return updated
     })
-  }, [selectedNodeType, edges, scheduleSave])
+  }, [selectedNodeType, edges, scheduleSave, reactFlowInstance])
 
   const deleteSelected = useCallback(() => {
     setNodes((nds) => {
@@ -342,11 +358,14 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
             onConnect={onConnect}
             onNodeDoubleClick={openNodeEdit}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            connectionMode={ConnectionMode.Loose}
             deleteKeyCode="Delete"
             fitView
             fitViewOptions={{ padding: 0.2 }}
             style={{ background: '#181818' }}
             defaultEdgeOptions={{
+              type: 'custom',
               style: { stroke: '#555', strokeWidth: 1.5 },
               markerEnd: { type: 'arrowclosed' as any, color: '#555' }
             }}
