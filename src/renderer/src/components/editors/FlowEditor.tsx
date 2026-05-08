@@ -18,7 +18,8 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import {
   Plus, Trash2, Pin, Square, Circle, Diamond,
-  Type, Link2, Clipboard, X, Minus, FileText
+  Type, Link2, Clipboard, X, Minus, FileText,
+  Undo2, Redo2, Copy
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import WorkItemSearch from '../WorkItemSearch'
@@ -26,6 +27,11 @@ import { type WorkItem, effectiveDone } from '../../lib/workItemUtils'
 import WorkItemRow from '../WorkItemRow'
 import { nodeTypes } from './flow/FlowNodeTypes'
 import { edgeTypes } from './flow/FlowEdgeTypes'
+
+interface HistorySnapshot {
+  nodes: Node[]
+  edges: Edge[]
+}
 
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
@@ -49,9 +55,25 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
 
+  // ─── History (undo/redo) ──────────────────────────────────────────────────
+  const historyRef = useRef<HistorySnapshot[]>([])
+  const historyIndexRef = useRef(-1)
+  const isUndoingRef = useRef(false)
+
+  // ─── Clipboard (copy/paste) ───────────────────────────────────────────────
+  const clipboardRef = useRef<HistorySnapshot | null>(null)
+
+  // ─── Live refs for nodes/edges (avoid stale closures in callbacks) ────────
+  const nodesRef = useRef<Node[]>([])
+  const edgesRef = useRef<Edge[]>([])
+
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const reactFlowInstance = useReactFlow()
+
+  // Keep live refs in sync
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+  useEffect(() => { edgesRef.current = edges }, [edges])
 
   // Load flow
   useEffect(() => {
@@ -79,10 +101,18 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     if (flow.content_json && flow.content_json !== '{}') {
       try {
         const parsed = JSON.parse(flow.content_json)
-        setNodes(parsed.nodes || [])
-        // Ensure all edges use the custom type (for draggable midpoint)
-        setEdges((parsed.edges || []).map((e: Edge) => ({ ...e, type: 'custom' })))
+        const parsedNodes: Node[] = parsed.nodes || []
+        const parsedEdges: Edge[] = (parsed.edges || []).map((e: Edge) => ({ ...e, type: 'custom' }))
+        setNodes(parsedNodes)
+        setEdges(parsedEdges)
+        // Seed history with the loaded state
+        historyRef.current = [{ nodes: parsedNodes, edges: parsedEdges }]
+        historyIndexRef.current = 0
       } catch { /* ignore */ }
+    } else {
+      // Empty flow — seed history with empty state
+      historyRef.current = [{ nodes: [], edges: [] }]
+      historyIndexRef.current = 0
     }
   }
 
@@ -127,7 +157,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     setLinkedNote(null)
   }
 
-  // Auto-save
+  // ─── Auto-save ────────────────────────────────────────────────────────────
   const scheduleSave = useCallback((currentTitle: string, currentNodes: Node[], currentEdges: Edge[]) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
@@ -138,6 +168,107 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     }, 500)
   }, [flowId])
 
+  // ─── History helpers ──────────────────────────────────────────────────────
+  const saveSnapshot = useCallback((snapshotNodes: Node[], snapshotEdges: Edge[]) => {
+    if (isUndoingRef.current) return
+    // Discard any forward history beyond current index
+    historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1)
+    historyRef.current.push({ nodes: [...snapshotNodes], edges: [...snapshotEdges] })
+    // Cap history at 50 entries
+    if (historyRef.current.length > 50) historyRef.current.shift()
+    historyIndexRef.current = historyRef.current.length - 1
+  }, [])
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return
+    historyIndexRef.current--
+    isUndoingRef.current = true
+    const snap = historyRef.current[historyIndexRef.current]
+    setNodes(snap.nodes)
+    setEdges(snap.edges)
+    scheduleSave(titleRef.current, snap.nodes, snap.edges)
+    setTimeout(() => { isUndoingRef.current = false }, 50)
+  }, [setNodes, setEdges, scheduleSave])
+
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return
+    historyIndexRef.current++
+    isUndoingRef.current = true
+    const snap = historyRef.current[historyIndexRef.current]
+    setNodes(snap.nodes)
+    setEdges(snap.edges)
+    scheduleSave(titleRef.current, snap.nodes, snap.edges)
+    setTimeout(() => { isUndoingRef.current = false }, 50)
+  }, [setNodes, setEdges, scheduleSave])
+
+  // ─── Clipboard helpers ────────────────────────────────────────────────────
+  const copySelected = useCallback(() => {
+    const selectedNodes = nodesRef.current.filter((n) => n.selected)
+    if (selectedNodes.length === 0) return
+    const selectedIds = new Set(selectedNodes.map((n) => n.id))
+    const selectedEdges = edgesRef.current.filter(
+      (e) => selectedIds.has(e.source) && selectedIds.has(e.target)
+    )
+    clipboardRef.current = { nodes: selectedNodes, edges: selectedEdges }
+  }, [])
+
+  const pasteFlowNodes = useCallback(() => {
+    if (!clipboardRef.current) return
+    const { nodes: copiedNodes, edges: copiedEdges } = clipboardRef.current
+    const OFFSET = 24
+    const idMap = new Map<string, string>()
+
+    const newNodes: Node[] = copiedNodes.map((n) => {
+      const newId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      idMap.set(n.id, newId)
+      return {
+        ...n,
+        id: newId,
+        position: { x: n.position.x + OFFSET, y: n.position.y + OFFSET },
+        selected: true,
+      }
+    })
+
+    const newEdges: Edge[] = copiedEdges.map((e) => ({
+      ...e,
+      id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      source: idMap.get(e.source) ?? e.source,
+      target: idMap.get(e.target) ?? e.target,
+      selected: false,
+    }))
+
+    setNodes((nds) => {
+      const deselected = nds.map((n) => ({ ...n, selected: false }))
+      const updated = [...deselected, ...newNodes]
+      setEdges((eds) => {
+        const updatedEdges = [...eds.map((e) => ({ ...e, selected: false })), ...newEdges]
+        scheduleSave(titleRef.current, updated, updatedEdges)
+        saveSnapshot(updated, updatedEdges)
+        return updatedEdges
+      })
+      return updated
+    })
+  }, [setNodes, setEdges, scheduleSave, saveSnapshot])
+
+  // ─── Keyboard shortcuts ───────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      // Skip if user is typing in an input or textarea
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
+        else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo() }
+        else if (e.key === 'c') { copySelected() }
+        else if (e.key === 'v') { e.preventDefault(); pasteFlowNodes() }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [undo, redo, copySelected, pasteFlowNodes])
+
+  // ─── ReactFlow event handlers ─────────────────────────────────────────────
   const onConnect = useCallback((params: Connection) => {
     setEdges((eds) => {
       const newEdges = addEdge({
@@ -146,38 +277,45 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
         style: { stroke: '#555', strokeWidth: 1.5 },
         markerEnd: { type: 'arrowclosed' as any, color: '#555' }
       }, eds)
-      scheduleSave(titleRef.current, nodes, newEdges)
+      scheduleSave(titleRef.current, nodesRef.current, newEdges)
+      saveSnapshot(nodesRef.current, newEdges)
       return newEdges
     })
-  }, [nodes, scheduleSave])
+  }, [scheduleSave, saveSnapshot])
 
-  // Save on node/edge changes (debounced)
+  // Save on node/edge changes (debounced); snapshot on removals
   const handleNodesChange = useCallback((changes: any) => {
     onNodesChange(changes)
-    // save after state settles
+    const hasRemoval = changes.some((c: any) => c.type === 'remove')
     setTimeout(() => {
       setNodes((nds) => {
-        scheduleSave(titleRef.current, nds, edges)
+        scheduleSave(titleRef.current, nds, edgesRef.current)
+        if (hasRemoval) saveSnapshot(nds, edgesRef.current)
         return nds
       })
     }, 50)
-  }, [onNodesChange, edges, scheduleSave])
+  }, [onNodesChange, scheduleSave, saveSnapshot])
 
   const handleEdgesChange = useCallback((changes: any) => {
     onEdgesChange(changes)
+    const hasRemoval = changes.some((c: any) => c.type === 'remove')
     setTimeout(() => {
       setEdges((eds) => {
-        scheduleSave(titleRef.current, nodes, eds)
+        scheduleSave(titleRef.current, nodesRef.current, eds)
+        if (hasRemoval) saveSnapshot(nodesRef.current, eds)
         return eds
       })
     }, 50)
-  }, [onEdgesChange, nodes, scheduleSave])
+  }, [onEdgesChange, scheduleSave, saveSnapshot])
+
+  const onNodeDragStop = useCallback(() => {
+    saveSnapshot(nodesRef.current, edgesRef.current)
+  }, [saveSnapshot])
 
   const addNode = useCallback(() => {
     const id = `node-${Date.now()}`
     const label = selectedNodeType === 'diamond' ? 'Decision' : selectedNodeType === 'text' ? 'Label' : 'Node'
 
-    // Place new node at the center of the visible canvas
     const wrapper = reactFlowWrapper.current
     const center = wrapper
       ? reactFlowInstance.screenToFlowPosition({
@@ -194,10 +332,11 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     }
     setNodes((nds) => {
       const updated = [...nds, newNode]
-      scheduleSave(titleRef.current, updated, edges)
+      scheduleSave(titleRef.current, updated, edgesRef.current)
+      saveSnapshot(updated, edgesRef.current)
       return updated
     })
-  }, [selectedNodeType, edges, scheduleSave, reactFlowInstance])
+  }, [selectedNodeType, scheduleSave, saveSnapshot, reactFlowInstance])
 
   const deleteSelected = useCallback(() => {
     setNodes((nds) => {
@@ -206,11 +345,12 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
         const keptIds = new Set(kept.map((n) => n.id))
         const keptEdges = eds.filter((e) => !e.selected && keptIds.has(e.source) && keptIds.has(e.target))
         scheduleSave(titleRef.current, kept, keptEdges)
+        saveSnapshot(kept, keptEdges)
         return keptEdges
       })
       return kept
     })
-  }, [scheduleSave])
+  }, [scheduleSave, saveSnapshot])
 
   const openNodeEdit = useCallback((evt: React.MouseEvent, node: Node) => {
     evt.preventDefault()
@@ -224,18 +364,19 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
       const updated = nds.map((n) =>
         n.id === editingNodeId ? { ...n, data: { ...n.data, label: editingLabel } } : n
       )
-      scheduleSave(titleRef.current, updated, edges)
+      scheduleSave(titleRef.current, updated, edgesRef.current)
+      saveSnapshot(updated, edgesRef.current)
       return updated
     })
     setEditingNodeId(null)
-  }, [editingNodeId, editingLabel, edges, scheduleSave])
+  }, [editingNodeId, editingLabel, scheduleSave, saveSnapshot])
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const val = e.target.value
     setTitle(val)
     titleRef.current = val
     updateTabTitle(flowId, val || 'Untitled')
-    scheduleSave(val, nodes, edges)
+    scheduleSave(val, nodesRef.current, edgesRef.current)
   }
 
   const togglePin = async (): Promise<void> => {
@@ -250,7 +391,6 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     if (tab) closeTab(tab.id)
     setActiveSection('flow')
   }
-
 
   // Work item actions
   const addWorkItem = async (url?: string): Promise<void> => {
@@ -283,6 +423,9 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
   }
 
   const allDone = workItems.length > 0 && workItems.every(effectiveDone)
+
+  const canUndo = historyIndexRef.current > 0
+  const canRedo = historyIndexRef.current < historyRef.current.length - 1
 
   const nodeTypeButtons: { type: 'rect' | 'circle' | 'diamond' | 'text'; icon: React.ReactNode; label: string }[] = [
     { type: 'rect', icon: <Square size={12} />, label: 'Box' },
@@ -328,6 +471,36 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
             <Minus size={13} />
           </button>
 
+          {/* Divider */}
+          <div className="w-px h-4 bg-th-bd-2 mx-0.5" />
+
+          {/* Undo / Redo */}
+          <button
+            onClick={undo}
+            title="Undo (Ctrl+Z)"
+            disabled={!canUndo}
+            className="p-1.5 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-4"
+          >
+            <Undo2 size={13} />
+          </button>
+          <button
+            onClick={redo}
+            title="Redo (Ctrl+Shift+Z)"
+            disabled={!canRedo}
+            className="p-1.5 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-4"
+          >
+            <Redo2 size={13} />
+          </button>
+
+          {/* Copy */}
+          <button
+            onClick={copySelected}
+            title="Copy selected (Ctrl+C)"
+            className="p-1.5 rounded transition-all text-th-tx-5 hover:text-th-tx-2 hover:bg-th-bg-4"
+          >
+            <Copy size={13} />
+          </button>
+
           <div className="flex-1" />
 
           <button onClick={togglePin} className={`p-1.5 rounded transition-all ${isPinned ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`} title={isPinned ? 'Unpin' : 'Pin'}>
@@ -357,6 +530,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
             onEdgesChange={handleEdgesChange}
             onConnect={onConnect}
             onNodeDoubleClick={openNodeEdit}
+            onNodeDragStop={onNodeDragStop}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             connectionMode={ConnectionMode.Loose}
@@ -391,7 +565,8 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
               <Panel position="top-center">
                 <div className="mt-8 text-th-tx-6 text-xs text-center select-none pointer-events-none">
                   <p>Click "Add Node" to start building your flow</p>
-                  <p className="mt-1">Drag from a node handle to connect • Double-click to rename • Delete key removes selected</p>
+                  <p className="mt-1">Drag from a handle to connect · Double-click to rename · Del removes selected</p>
+                  <p className="mt-1">Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+C copy · Ctrl+V paste</p>
                 </div>
               </Panel>
             )}
