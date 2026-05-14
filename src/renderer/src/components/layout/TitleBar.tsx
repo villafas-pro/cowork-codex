@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Search, X, Minus, Square } from 'lucide-reac
 import { useAppStore } from '../../store/appStore'
 
 export default function TitleBar(): React.JSX.Element {
-  const { navIndex, navHistory, goBack, goForward, tabs, activeTabId, setActiveTab, closeTab, setSearchOpen } =
+  const { navIndex, navHistory, goBack, goForward, tabs, activeTabId, setActiveTab, closeTab, setSearchOpen, viewMode } =
     useAppStore()
 
   const canGoBack = navIndex > 0
@@ -38,7 +38,7 @@ export default function TitleBar(): React.JSX.Element {
             className={`
               titlebar-no-drag flex items-center gap-2 px-3 h-full border-r border-th-bd-1 cursor-pointer
               text-xs max-w-[180px] min-w-[100px] flex-shrink-0 transition-all duration-100
-              ${activeTabId === tab.id ? 'bg-th-bg-4 text-th-tx-1' : 'text-th-tx-3 hover:text-th-tx-2 hover:bg-th-bg-3'}
+              ${activeTabId === tab.id && viewMode === 'tab' ? 'bg-th-bg-4 text-th-tx-1' : 'text-th-tx-3 hover:text-th-tx-2 hover:bg-th-bg-3'}
             `}
           >
             <span className="truncate flex-1">{tab.title}</span>
