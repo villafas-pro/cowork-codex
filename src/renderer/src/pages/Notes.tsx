@@ -13,7 +13,7 @@ interface NoteItem {
 }
 
 export default function Notes(): React.JSX.Element {
-  const { openTab, closeTab, tabs } = useAppStore()
+  const { openTab, closeTab, tabs, showConfirm } = useAppStore()
   const [notes, setNotes] = useState<NoteItem[]>([])
   const [search, setSearch] = useState('')
 
@@ -60,7 +60,7 @@ export default function Notes(): React.JSX.Element {
 
   async function deleteNote(note: NoteItem, e: React.MouseEvent): Promise<void> {
     e.stopPropagation()
-    if (!window.confirm(`Delete "${note.title || 'Untitled'}"? This cannot be undone.`)) return
+    if (!await showConfirm(`Delete "${note.title || 'Untitled'}"? This cannot be undone.`)) return
     await window.api?.notes.delete(note.id)
     setNotes((prev) => prev.filter((n) => n.id !== note.id))
     // Close the tab if it's open

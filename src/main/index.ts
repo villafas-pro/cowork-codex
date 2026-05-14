@@ -88,9 +88,14 @@ function createQuickCaptureWindow(): void {
 
 function createTray(): void {
   const iconPath = is.dev
-    ? join(__dirname, '../../resources/icon.ico')
+    ? join(app.getAppPath(), 'resources/icon.ico')
     : join(process.resourcesPath, 'icon.ico')
-  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+  const rawIcon = nativeImage.createFromPath(iconPath)
+  if (rawIcon.isEmpty()) {
+    console.warn('[tray] icon not found at', iconPath)
+    return
+  }
+  const icon = rawIcon.resize({ width: 16, height: 16 })
   tray = new Tray(icon)
 
   const contextMenu = Menu.buildFromTemplate([

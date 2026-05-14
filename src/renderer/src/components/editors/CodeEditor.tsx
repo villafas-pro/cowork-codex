@@ -13,7 +13,7 @@ const LANGUAGES = [
 ]
 
 export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus, showConfirm } = useAppStore()
   const [title, setTitle] = useState('')
   const [language, setLanguage] = useState('plaintext')
   const [content, setContent] = useState('')
@@ -140,7 +140,7 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
   }
 
   const deleteBlock = async (): Promise<void> => {
-    if (!window.confirm(`Delete "${titleRef.current || 'Untitled'}"? This cannot be undone.`)) return
+    if (!await showConfirm(`Delete "${titleRef.current || 'Untitled'}"? This cannot be undone.`)) return
     await window.api?.code.delete(blockId)
     const tab = tabs.find((t) => t.entityType === 'code' && t.entityId === blockId)
     if (tab) closeTab(tab.id)

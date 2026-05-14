@@ -57,7 +57,7 @@ function FlowRow({ flow, onOpen, onTogglePin, onDelete }: FlowRowProps): React.J
 }
 
 export default function Flow(): React.JSX.Element {
-  const { openTab, closeTab, tabs } = useAppStore()
+  const { openTab, closeTab, tabs, showConfirm } = useAppStore()
   const [flows, setFlows] = useState<FlowItem[]>([])
   const [search, setSearch] = useState('')
 
@@ -88,7 +88,7 @@ export default function Flow(): React.JSX.Element {
 
   async function handleDelete(flow: FlowItem, e: React.MouseEvent): Promise<void> {
     e.stopPropagation()
-    if (!window.confirm(`Delete "${flow.title || 'Untitled'}"? This cannot be undone.`)) return
+    if (!await showConfirm(`Delete "${flow.title || 'Untitled'}"? This cannot be undone.`)) return
     await window.api?.flows.delete(flow.id)
     setFlows((prev) => prev.filter((f) => f.id !== flow.id))
     const tab = tabs.find((t) => t.entityType === 'flow' && t.entityId === flow.id)

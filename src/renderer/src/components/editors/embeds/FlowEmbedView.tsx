@@ -10,6 +10,7 @@ import ReactFlow, {
   Background,
   BackgroundVariant,
   Connection,
+  ConnectionMode,
   Edge,
   Node,
 } from 'reactflow'
@@ -17,6 +18,7 @@ import 'reactflow/dist/style.css'
 import { GitBranch, ExternalLink, X, Plus, Square, Circle, Diamond, Type, Minus, GripVertical } from 'lucide-react'
 import { useAppStore } from '../../../store/appStore'
 import { nodeTypes } from '../flow/FlowNodeTypes'
+import { edgeTypes } from '../flow/FlowEdgeTypes'
 
 type NodeShapeType = 'rect' | 'circle' | 'diamond' | 'text'
 
@@ -34,10 +36,30 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
 
+  const MIN_HEIGHT = 300
+  const [canvasHeight, setCanvasHeight] = useState(MIN_HEIGHT)
+
   const titleRef = useRef('')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const embedFocusedRef = useRef(false)
+
+  const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startY = e.clientY
+    const startH = canvasHeight
+    const onMouseMove = (ev: MouseEvent): void => {
+      const next = Math.max(MIN_HEIGHT, startH + (ev.clientY - startY))
+      setCanvasHeight(next)
+    }
+    const onMouseUp = (): void => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [canvasHeight])
 
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -84,7 +106,7 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
         try {
           const parsed = JSON.parse(flow.content_json)
           setNodes(parsed.nodes || [])
-          setEdges(parsed.edges || [])
+          setEdges((parsed.edges || []).map((e: Edge) => ({ ...e, type: 'custom' })))
         } catch { /* ignore */ }
       }
       setLoaded(true)
@@ -112,6 +134,7 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
     setEdges((eds) => {
       const newEdges = addEdge({
         ...params,
+        type: 'custom',
         style: { stroke: '#555', strokeWidth: 1.5 },
         markerEnd: { type: 'arrowclosed' as any, color: '#555' },
       }, eds)
@@ -268,7 +291,7 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
 
       {/* Canvas */}
       {loaded ? (
-        <div style={{ height: 300, position: 'relative' }} onDragStart={(e) => e.stopPropagation()}>
+        <div style={{ height: canvasHeight, position: 'relative' }} onDragStart={(e) => e.stopPropagation()}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -277,11 +300,14 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
             onConnect={onConnect}
             onNodeDoubleClick={openNodeEdit}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            connectionMode={ConnectionMode.Loose}
             deleteKeyCode="Delete"
             fitView
             fitViewOptions={{ padding: 0.3 }}
             style={{ background: '#181818' }}
             defaultEdgeOptions={{
+              type: 'custom',
               style: { stroke: '#555', strokeWidth: 1.5 },
               markerEnd: { type: 'arrowclosed' as any, color: '#555' },
             }}
@@ -292,6 +318,17 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
               showInteractive={false}
             />
           </ReactFlow>
+
+          {/* Resize handle */}
+          <div
+            onMouseDown={onResizeMouseDown}
+            className="absolute bottom-0 right-0 w-5 h-5 cursor-ns-resize flex items-end justify-end pb-1 pr-1 z-10 group"
+            title="Drag to resize"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" className="text-th-tx-6 group-hover:text-th-tx-3 transition-colors">
+              <path d="M 9 1 L 1 9 M 9 5 L 5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
 
           {/* Node label edit modal */}
           {editingNodeId && (
@@ -319,7 +356,7 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
           )}
         </div>
       ) : (
-        <div className="h-[300px] flex items-center justify-center" style={{ background: '#181818' }}>
+        <div className="flex items-center justify-center" style={{ height: canvasHeight, background: '#181818' }}>
           <span className="text-xs text-th-tx-6">Loading…</span>
         </div>
       )}

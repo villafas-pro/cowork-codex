@@ -11,6 +11,8 @@ const LANGUAGES = [
   'java', 'php', 'ruby', 'cpp', 'xml', 'powershell',
 ]
 
+const MIN_HEIGHT = 200
+
 export default function CodeEmbedView({ node, deleteNode, selected, getPos, editor }: NodeViewProps): React.JSX.Element {
   const { blockId } = node.attrs
   const { openTab } = useAppStore()
@@ -21,6 +23,7 @@ export default function CodeEmbedView({ node, deleteNode, selected, getPos, edit
   const [copied, setCopied] = useState(false)
   const [showLangPicker, setShowLangPicker] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [editorHeight, setEditorHeight] = useState(MIN_HEIGHT)
 
   const titleRef = useRef('')
   const languageRef = useRef('plaintext')
@@ -141,6 +144,23 @@ export default function CodeEmbedView({ node, deleteNode, selected, getPos, edit
     deleteNode()
   }
 
+  const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startY = e.clientY
+    const startH = editorHeight
+    const onMouseMove = (ev: MouseEvent): void => {
+      const next = Math.max(MIN_HEIGHT, startH + (ev.clientY - startY))
+      setEditorHeight(next)
+    }
+    const onMouseUp = (): void => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [editorHeight])
+
   return (
     <NodeViewWrapper>
       <div
@@ -217,9 +237,13 @@ export default function CodeEmbedView({ node, deleteNode, selected, getPos, edit
 
         {/* Monaco editor — only rendered once data is loaded */}
         {loaded ? (
-          <div onMouseDown={(e) => e.stopPropagation()} onDragStart={(e) => e.stopPropagation()}>
+          <div
+            style={{ position: 'relative', height: editorHeight }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onDragStart={(e) => e.stopPropagation()}
+          >
             <Editor
-              height="200px"
+              height={editorHeight}
               language={language}
               value={content}
               onChange={handleContentChange}
@@ -240,9 +264,19 @@ export default function CodeEmbedView({ node, deleteNode, selected, getPos, edit
                 scrollbar: { verticalScrollbarSize: 4, horizontalScrollbarSize: 4 },
               }}
             />
+            {/* Resize handle */}
+            <div
+              onMouseDown={onResizeMouseDown}
+              className="absolute bottom-0 right-0 w-5 h-5 cursor-ns-resize flex items-end justify-end pb-1 pr-1 z-10 group"
+              title="Drag to resize"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" className="text-th-tx-6 group-hover:text-th-tx-3 transition-colors">
+                <path d="M 9 1 L 1 9 M 9 5 L 5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
           </div>
         ) : (
-          <div className="h-[200px] flex items-center justify-center">
+          <div style={{ height: editorHeight }} className="flex items-center justify-center">
             <span className="text-xs text-th-tx-6">Loading…</span>
           </div>
         )}

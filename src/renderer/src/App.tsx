@@ -3,6 +3,7 @@ import { useAppStore } from './store/appStore'
 import Sidebar from './components/layout/Sidebar'
 import TitleBar from './components/layout/TitleBar'
 import GlobalSearch from './components/layout/GlobalSearch'
+import ConfirmDialog from './components/ConfirmDialog'
 import Home from './pages/Home'
 import Notes from './pages/Notes'
 import Code from './pages/Code'
@@ -253,6 +254,9 @@ export default function App(): React.JSX.Element {
 
       {/* Global search overlay */}
       <GlobalSearch />
+
+      {/* Confirm dialog */}
+      <ConfirmDialog />
     </div>
   )
 }

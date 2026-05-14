@@ -61,6 +61,11 @@ interface AppStore {
   // ADO connection status
   adoStatus: 'ok' | 'error' | 'unconfigured' | 'checking'
   setAdoStatus: (status: 'ok' | 'error' | 'unconfigured' | 'checking') => void
+
+  // Confirm dialog
+  confirmDialog: { message: string; resolve: (v: boolean) => void } | null
+  showConfirm: (message: string) => Promise<boolean>
+  resolveConfirm: (result: boolean) => void
 }
 
 // Apply default dark class immediately so there's no flash-of-light on startup
@@ -192,5 +197,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setSearchOpen: (open) => set({ searchOpen: open }),
 
   adoStatus: 'unconfigured',
-  setAdoStatus: (status) => set({ adoStatus: status })
+  setAdoStatus: (status) => set({ adoStatus: status }),
+
+  confirmDialog: null,
+  showConfirm: (message) =>
+    new Promise((resolve) => {
+      set({ confirmDialog: { message, resolve } })
+    }),
+  resolveConfirm: (result) => {
+    const { confirmDialog } = get()
+    confirmDialog?.resolve(result)
+    set({ confirmDialog: null })
+  },
 }))

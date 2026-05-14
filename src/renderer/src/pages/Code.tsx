@@ -13,7 +13,7 @@ interface CodeBlock {
 }
 
 export default function Code(): React.JSX.Element {
-  const { openTab, closeTab, tabs } = useAppStore()
+  const { openTab, closeTab, tabs, showConfirm } = useAppStore()
   const [blocks, setBlocks] = useState<CodeBlock[]>([])
   const [search, setSearch] = useState('')
 
@@ -49,7 +49,7 @@ export default function Code(): React.JSX.Element {
 
   async function deleteBlock(block: CodeBlock, e: React.MouseEvent): Promise<void> {
     e.stopPropagation()
-    if (!window.confirm(`Delete "${block.title || 'Untitled'}"? This cannot be undone.`)) return
+    if (!await showConfirm(`Delete "${block.title || 'Untitled'}"? This cannot be undone.`)) return
     await window.api?.code.delete(block.id)
     setBlocks((prev) => prev.filter((b) => b.id !== block.id))
     const tab = tabs.find((t) => t.entityType === 'code' && t.entityId === block.id)

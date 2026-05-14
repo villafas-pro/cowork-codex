@@ -54,7 +54,7 @@ function PasswordField({
 }
 
 export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus, showConfirm } = useAppStore()
   const [title, setTitle] = useState('')
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
   const [newItemUrl, setNewItemUrl] = useState('')
@@ -568,7 +568,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
   }
 
   const deleteNote = async (): Promise<void> => {
-    if (!window.confirm(`Delete "${titleRef.current || 'Untitled'}"? This cannot be undone.`)) return
+    if (!await showConfirm(`Delete "${titleRef.current || 'Untitled'}"? This cannot be undone.`)) return
     await window.api?.notes.delete(noteId)
     const tab = tabs.find((t) => t.entityType === 'note' && t.entityId === noteId)
     if (tab) closeTab(tab.id)

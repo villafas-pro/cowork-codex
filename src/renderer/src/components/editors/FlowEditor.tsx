@@ -36,7 +36,7 @@ interface HistorySnapshot {
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
 function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus, showConfirm } = useAppStore()
   const [title, setTitle] = useState('')
   const [isPinned, setIsPinned] = useState(false)
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
@@ -59,6 +59,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
   const historyRef = useRef<HistorySnapshot[]>([])
   const historyIndexRef = useRef(-1)
   const isUndoingRef = useRef(false)
+  const [historyTick, setHistoryTick] = useState(0) // bumped to trigger re-render on history change
 
   // ─── Clipboard (copy/paste) ───────────────────────────────────────────────
   const clipboardRef = useRef<HistorySnapshot | null>(null)
@@ -177,6 +178,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     // Cap history at 50 entries
     if (historyRef.current.length > 50) historyRef.current.shift()
     historyIndexRef.current = historyRef.current.length - 1
+    setHistoryTick((t) => t + 1)
   }, [])
 
   const undo = useCallback(() => {
@@ -187,6 +189,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     setNodes(snap.nodes)
     setEdges(snap.edges)
     scheduleSave(titleRef.current, snap.nodes, snap.edges)
+    setHistoryTick((t) => t + 1)
     setTimeout(() => { isUndoingRef.current = false }, 50)
   }, [setNodes, setEdges, scheduleSave])
 
@@ -198,6 +201,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     setNodes(snap.nodes)
     setEdges(snap.edges)
     scheduleSave(titleRef.current, snap.nodes, snap.edges)
+    setHistoryTick((t) => t + 1)
     setTimeout(() => { isUndoingRef.current = false }, 50)
   }, [setNodes, setEdges, scheduleSave])
 
@@ -385,7 +389,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
   }
 
   const deleteFlow = async (): Promise<void> => {
-    if (!window.confirm(`Delete "${titleRef.current || 'Untitled'}"? This cannot be undone.`)) return
+    if (!await showConfirm(`Delete "${titleRef.current || 'Untitled'}"? This cannot be undone.`)) return
     await window.api?.flows.delete(flowId)
     const tab = tabs.find((t) => t.entityType === 'flow' && t.entityId === flowId)
     if (tab) closeTab(tab.id)
@@ -424,8 +428,9 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
 
   const allDone = workItems.length > 0 && workItems.every(effectiveDone)
 
-  const canUndo = historyIndexRef.current > 0
-  const canRedo = historyIndexRef.current < historyRef.current.length - 1
+  // historyTick is only used to trigger re-renders when history changes
+  const canUndo = historyTick >= 0 && historyIndexRef.current > 0
+  const canRedo = historyTick >= 0 && historyIndexRef.current < historyRef.current.length - 1
 
   const nodeTypeButtons: { type: 'rect' | 'circle' | 'diamond' | 'text'; icon: React.ReactNode; label: string }[] = [
     { type: 'rect', icon: <Square size={12} />, label: 'Box' },
