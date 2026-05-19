@@ -132,6 +132,21 @@ function createTray(): void {
   })
 }
 
+// Enforce single instance — if a second instance tries to launch,
+// focus the existing window and quit the new process.
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+}
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.coworkcodex')
 
