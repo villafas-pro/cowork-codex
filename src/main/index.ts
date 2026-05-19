@@ -132,8 +132,7 @@ function createTray(): void {
   })
 }
 
-// Enforce single instance — if a second instance tries to launch,
-// focus the existing window and quit the new process.
+// Enforce single instance — second launch focuses the existing window and exits.
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
@@ -145,59 +144,59 @@ if (!gotLock) {
       mainWindow.focus()
     }
   })
-}
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.coworkcodex')
+  app.whenReady().then(() => {
+    electronApp.setAppUserModelId('com.coworkcodex')
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
 
-  // Initialize database
-  initDb()
+    // Initialize database
+    initDb()
 
-  // Auto-backup on startup
-  backupDb()
+    // Auto-backup on startup
+    backupDb()
 
-  // Register IPC handlers
-  registerNoteHandlers()
-  registerWorkItemHandlers()
-  registerCodeBlockHandlers()
-  registerFlowHandlers()
-  registerAppHandlers()
-  registerAdoHandlers()
+    // Register IPC handlers
+    registerNoteHandlers()
+    registerWorkItemHandlers()
+    registerCodeBlockHandlers()
+    registerFlowHandlers()
+    registerAppHandlers()
+    registerAdoHandlers()
 
-  createWindow()
-  createTray()
-
-  // Window control IPC
-  ipcMain.on('window:minimize', () => mainWindow?.minimize())
-  ipcMain.on('window:maximize', () => {
-    if (mainWindow?.isMaximized()) mainWindow.unmaximize()
-    else mainWindow?.maximize()
-  })
-  ipcMain.on('window:close', () => mainWindow?.hide())
-
-  // Global shortcut for quick capture
-  globalShortcut.register('CmdOrCtrl+Shift+Space', () => {
-    createQuickCaptureWindow()
-    quickCaptureWindow?.show()
-    quickCaptureWindow?.focus()
-  })
-})
-
-app.on('window-all-closed', () => {
-  // Keep app running in tray
-})
-
-app.on('before-quit', () => {
-  closeDb()
-  globalShortcut.unregisterAll()
-})
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
-  }
-})
+    createTray()
+
+    // Window control IPC
+    ipcMain.on('window:minimize', () => mainWindow?.minimize())
+    ipcMain.on('window:maximize', () => {
+      if (mainWindow?.isMaximized()) mainWindow.unmaximize()
+      else mainWindow?.maximize()
+    })
+    ipcMain.on('window:close', () => mainWindow?.hide())
+
+    // Global shortcut for quick capture
+    globalShortcut.register('CmdOrCtrl+Shift+Space', () => {
+      createQuickCaptureWindow()
+      quickCaptureWindow?.show()
+      quickCaptureWindow?.focus()
+    })
+  })
+
+  app.on('window-all-closed', () => {
+    // Keep app running in tray
+  })
+
+  app.on('before-quit', () => {
+    closeDb()
+    globalShortcut.unregisterAll()
+  })
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
+  })
+}
