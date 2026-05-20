@@ -112,7 +112,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   closeTab: (id) => {
-    const { tabs, activeTabId } = get()
+    const { tabs, activeTabId, navHistory, navIndex } = get()
+    const closedTab = tabs.find((t) => t.id === id)
     const idx = tabs.findIndex((t) => t.id === id)
     const newTabs = tabs.filter((t) => t.id !== id)
     let newActiveId = activeTabId
@@ -121,10 +122,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const newActive = newTabs[idx - 1] || newTabs[idx] || null
       newActiveId = newActive?.id || null
     }
+    // Prune all history entries for the closed tab so back/forward never
+    // tries to navigate to something that no longer exists.
+    let newHistory = navHistory
+    let newNavIndex = navIndex
+    if (closedTab) {
+      const removedIndices = new Set<number>()
+      newHistory = navHistory.filter((entry, i) => {
+        if (entry.entityType === closedTab.entityType && entry.entityId === closedTab.entityId) {
+          removedIndices.add(i)
+          return false
+        }
+        return true
+      })
+      // Shift navIndex down by the number of removed entries that were at or before it
+      const removedBeforeOrAt = [...removedIndices].filter((i) => i <= navIndex).length
+      newNavIndex = Math.max(-1, navIndex - removedBeforeOrAt)
+    }
     set({
       tabs: newTabs,
       activeTabId: newActiveId,
-      viewMode: newTabs.length === 0 ? 'section' : get().viewMode
+      viewMode: newTabs.length === 0 ? 'section' : get().viewMode,
+      navHistory: newHistory,
+      navIndex: newNavIndex,
     })
   },
 
@@ -167,33 +187,45 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   goBack: () => {
-    const { navIndex, navHistory } = get()
+    const { navIndex, navHistory, tabs } = get()
     if (navIndex <= 0) return
-    const newIndex = navIndex - 1
+    // Walk backwards to find the nearest valid entry (skip any stale tab entries)
+    let newIndex = navIndex - 1
+    while (newIndex >= 0) {
+      const entry = navHistory[newIndex]
+      if (entry.section) break
+      if (entry.entityId && tabs.find((t) => t.entityType === entry.entityType && t.entityId === entry.entityId)) break
+      newIndex--
+    }
+    if (newIndex < 0) return
     const entry = navHistory[newIndex]
     set({ navIndex: newIndex })
     if (entry.section) {
       set({ activeSection: entry.section, viewMode: 'section' })
     } else if (entry.entityId) {
-      const tab = get().tabs.find(
-        (t) => t.entityType === entry.entityType && t.entityId === entry.entityId
-      )
+      const tab = tabs.find((t) => t.entityType === entry.entityType && t.entityId === entry.entityId)
       if (tab) set({ activeTabId: tab.id, viewMode: 'tab' })
     }
   },
 
   goForward: () => {
-    const { navIndex, navHistory } = get()
+    const { navIndex, navHistory, tabs } = get()
     if (navIndex >= navHistory.length - 1) return
-    const newIndex = navIndex + 1
+    // Walk forwards to find the nearest valid entry (skip any stale tab entries)
+    let newIndex = navIndex + 1
+    while (newIndex < navHistory.length) {
+      const entry = navHistory[newIndex]
+      if (entry.section) break
+      if (entry.entityId && tabs.find((t) => t.entityType === entry.entityType && t.entityId === entry.entityId)) break
+      newIndex++
+    }
+    if (newIndex >= navHistory.length) return
     const entry = navHistory[newIndex]
     set({ navIndex: newIndex })
     if (entry.section) {
       set({ activeSection: entry.section, viewMode: 'section' })
     } else if (entry.entityId) {
-      const tab = get().tabs.find(
-        (t) => t.entityType === entry.entityType && t.entityId === entry.entityId
-      )
+      const tab = tabs.find((t) => t.entityType === entry.entityType && t.entityId === entry.entityId)
       if (tab) set({ activeTabId: tab.id, viewMode: 'tab' })
     }
   },
