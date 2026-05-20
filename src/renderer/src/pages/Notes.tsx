@@ -130,7 +130,7 @@ export default function Notes(): React.JSX.Element {
         <h1 className="text-sm font-medium text-th-tx-2">Notes</h1>
         <button
           onClick={createNote}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-xs transition-all"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-black text-xs font-medium transition-all"
         >
           <Plus size={13} />
           New Note

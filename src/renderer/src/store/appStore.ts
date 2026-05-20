@@ -152,6 +152,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   navigate: (entry) => {
     const { navHistory, navIndex } = get()
+    // Skip if the current entry is identical — avoids stacking duplicates when
+    // the user clicks the same section or tab multiple times in a row.
+    const current = navHistory[navIndex]
+    if (
+      current &&
+      current.section === entry.section &&
+      current.entityType === entry.entityType &&
+      current.entityId === entry.entityId
+    ) return
     const newHistory = navHistory.slice(0, navIndex + 1)
     newHistory.push(entry)
     set({ navHistory: newHistory, navIndex: newHistory.length - 1 })

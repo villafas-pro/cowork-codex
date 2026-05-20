@@ -43,6 +43,9 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const embedFocusedRef = useRef(false)
+  // Live refs so callbacks always read current nodes/edges without stale closures
+  const nodesRef = useRef<Node[]>([])
+  const edgesRef = useRef<Edge[]>([])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -63,6 +66,10 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
 
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
+
+  // Keep live refs in sync
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+  useEffect(() => { edgesRef.current = edges }, [edges])
 
   // Use a ref so the wheel handler always reads the live focused value
   // without needing to re-register on every focus change.
@@ -127,7 +134,7 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
     const val = e.target.value
     setTitle(val)
     titleRef.current = val
-    scheduleSave(val, nodes, edges)
+    scheduleSave(val, nodesRef.current, edgesRef.current)
   }
 
   const onConnect = useCallback((params: Connection) => {
@@ -138,24 +145,24 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
         style: { stroke: '#555', strokeWidth: 1.5 },
         markerEnd: { type: 'arrowclosed' as any, color: '#555' },
       }, eds)
-      scheduleSave(titleRef.current, nodes, newEdges)
+      scheduleSave(titleRef.current, nodesRef.current, newEdges)
       return newEdges
     })
-  }, [nodes, scheduleSave])
+  }, [scheduleSave])
 
   const handleNodesChange = useCallback((changes: any) => {
     onNodesChange(changes)
     setTimeout(() => {
-      setNodes((nds) => { scheduleSave(titleRef.current, nds, edges); return nds })
+      setNodes((nds) => { scheduleSave(titleRef.current, nds, edgesRef.current); return nds })
     }, 50)
-  }, [onNodesChange, edges, scheduleSave])
+  }, [onNodesChange, scheduleSave])
 
   const handleEdgesChange = useCallback((changes: any) => {
     onEdgesChange(changes)
     setTimeout(() => {
-      setEdges((eds) => { scheduleSave(titleRef.current, nodes, eds); return eds })
+      setEdges((eds) => { scheduleSave(titleRef.current, nodesRef.current, eds); return eds })
     }, 50)
-  }, [onEdgesChange, nodes, scheduleSave])
+  }, [onEdgesChange, scheduleSave])
 
   const addNode = useCallback(() => {
     const id = `node-${Date.now()}`
@@ -168,10 +175,10 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
     }
     setNodes((nds) => {
       const updated = [...nds, newNode]
-      scheduleSave(titleRef.current, updated, edges)
+      scheduleSave(titleRef.current, updated, edgesRef.current)
       return updated
     })
-  }, [selectedNodeType, edges, scheduleSave])
+  }, [selectedNodeType, scheduleSave])
 
   const deleteSelected = useCallback(() => {
     setNodes((nds) => {
@@ -198,11 +205,11 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
       const updated = nds.map((n) =>
         n.id === editingNodeId ? { ...n, data: { ...n.data, label: editingLabel } } : n
       )
-      scheduleSave(titleRef.current, updated, edges)
+      scheduleSave(titleRef.current, updated, edgesRef.current)
       return updated
     })
     setEditingNodeId(null)
-  }, [editingNodeId, editingLabel, edges, scheduleSave])
+  }, [editingNodeId, editingLabel, scheduleSave])
 
   const openFull = (): void => {
     openTab({ entityType: 'flow', entityId: flowId, title: title || 'Untitled' })
