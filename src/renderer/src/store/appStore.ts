@@ -97,9 +97,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeTabId: null,
 
   openTab: (tab) => {
-    const { tabs } = get()
+    const { tabs, activeTabId } = get()
     const existing = tabs.find((t) => t.entityType === tab.entityType && t.entityId === tab.entityId)
     if (existing) {
+      if (existing.id !== activeTabId) {
+        get().navigate({ entityType: tab.entityType, entityId: tab.entityId })
+      }
       set({ activeTabId: existing.id, viewMode: 'tab' })
       return
     }
