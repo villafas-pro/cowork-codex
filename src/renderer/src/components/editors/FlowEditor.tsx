@@ -22,6 +22,7 @@ import {
   Undo2, Redo2, Copy
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import EntityTagsArchive from '../EntityTagsArchive'
 import WorkItemSearch from '../WorkItemSearch'
 import { type WorkItem, effectiveDone } from '../../lib/workItemUtils'
 import WorkItemRow from '../WorkItemRow'
@@ -36,7 +37,7 @@ interface HistorySnapshot {
 // ─── Main Editor ─────────────────────────────────────────────────────────────
 
 function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus, showConfirm } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, integrationStatus, showConfirm } = useAppStore()
   const [title, setTitle] = useState('')
   const [isPinned, setIsPinned] = useState(false)
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
@@ -81,7 +82,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     loadFlow()
     loadWorkItems()
     loadAllNotes()
-    window.api?.ado.isConfigured().then(setAdoConfigured)
+    window.api?.integrations.isConfigured().then(setAdoConfigured)
   }, [flowId])
 
   async function loadFlow(): Promise<void> {
@@ -404,9 +405,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
     if (item) {
       setNewItemUrl('')
       setShowAddItem(false)
-      if (target.includes('dev.azure.com')) {
-        await window.api?.ado.fetchWorkItem(parseInt(item.item_number, 10)).catch(() => {})
-      }
+      // The main process fetches ADO/Jira details while linking, so the list is already enriched
       await loadWorkItems()
     }
   }
@@ -508,6 +507,7 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
 
           <div className="flex-1" />
 
+          <EntityTagsArchive entityType="flow" entityId={flowId} />
           <button onClick={togglePin} className={`p-1.5 rounded transition-all ${isPinned ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`} title={isPinned ? 'Unpin' : 'Pin'}>
             <Pin size={13} />
           </button>
@@ -730,9 +730,9 @@ function FlowEditorInner({ flowId }: { flowId: string }): React.JSX.Element {
                   <WorkItemRow
                     key={item.id}
                     item={item}
-                    adoStatus={adoStatus}
+                    integrationStatus={integrationStatus}
                     onToggle={toggleWorkItem}
-                    onOpen={(i) => openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || `#${i.item_number}` })}
+                    onOpen={(i) => i.is_tracked ? openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || (/\D/.test(i.item_number) ? i.item_number : `#${i.item_number}`) }) : window.api?.shell.openExternal(i.url)}
                     onRemove={removeWorkItem}
                   />
                 ))

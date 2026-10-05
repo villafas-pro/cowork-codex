@@ -1,21 +1,28 @@
 import { ipcMain } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { getDb } from '../db'
-import type { WorkItem } from '@shared/types'
-import type Database from 'better-sqlite3'
+import { fetchItem, parseRef } from '../integrations'
+import { recomputeForWorkItem, recomputeNoteDone } from '../workItemState'
+
+// Columns every work item query returns, so list pages and linked-item panels share one shape.
+// is_tracked = the item comes from an integration (ADO/Jira), so its state is managed there.
+const ITEM_COLUMNS = `
+  wi.*,
+  CASE WHEN wi.provider IN ('ado','jira') THEN 1 ELSE 0 END AS is_tracked,
+  COALESCE(NULLIF(wi.container, ''), cwi.container, '') AS container,
+  cwi.title          AS cached_title,
+  cwi.type           AS cached_type,
+  cwi.state          AS cached_state,
+  cwi.state_category AS cached_state_category,
+  cwi.assigned_to    AS cached_assigned_to
+`
 
 export function registerWorkItemHandlers(): void {
-  // Get all work items that are linked to at least one entity (enriched with cached ADO data)
+  // Get all work items that are linked to at least one entity (enriched with cached data)
   ipcMain.handle('workItems:getAll', () => {
     const db = getDb()
     return db.prepare(`
-      SELECT
-        wi.*,
-        CASE WHEN wi.url LIKE '%dev.azure.com%' THEN 1 ELSE 0 END as is_ado,
-        cwi.title  as cached_title,
-        cwi.type   as cached_type,
-        cwi.state  as cached_state,
-        cwi.assigned_to as cached_assigned_to
+      SELECT ${ITEM_COLUMNS}
       FROM work_items wi
       LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
       WHERE EXISTS (SELECT 1 FROM work_item_links wil WHERE wil.work_item_id = wi.id)
@@ -23,18 +30,11 @@ export function registerWorkItemHandlers(): void {
     `).all()
   })
 
-  // Get work items for an entity (enriched with cached ADO data)
+  // Get work items for an entity (enriched with cached data)
   ipcMain.handle('workItems:getForEntity', (_, entityType: string, entityId: string) => {
     const db = getDb()
     return db.prepare(`
-      SELECT
-        wi.*,
-        wil.id as link_id,
-        CASE WHEN wi.url LIKE '%dev.azure.com%' THEN 1 ELSE 0 END as is_ado,
-        cwi.title  as cached_title,
-        cwi.type   as cached_type,
-        cwi.state  as cached_state,
-        cwi.assigned_to as cached_assigned_to
+      SELECT ${ITEM_COLUMNS}, wil.id AS link_id
       FROM work_items wi
       JOIN work_item_links wil ON wi.id = wil.work_item_id
       LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
@@ -43,27 +43,44 @@ export function registerWorkItemHandlers(): void {
     `).all(entityType, entityId)
   })
 
-  // Create work item (reuses existing row if same item_number already exists)
-  ipcMain.handle('workItems:create', (_, url: string, entityType?: string, entityId?: string) => {
+  // Create a work item from a pasted URL or key and optionally link it to an entity.
+  // Recognized ADO/Jira references are fetched immediately so the title shows right away.
+  // Anything else is kept as a plain "manual" link the user ticks off themselves.
+  ipcMain.handle('workItems:create', async (_, ref: string, entityType?: string, entityId?: string) => {
     const db = getDb()
     const now = Date.now()
+    const input = (ref || '').trim()
+    const parsed = parseRef(input)
 
-    // Extract item number from URL (last numeric segment)
-    const match = url.match(/(\d+)[^/]*$/)
-    const itemNumber = match ? match[1] : url
-
-    // Reuse existing row if this item_number is already tracked
-    const existing = db.prepare('SELECT * FROM work_items WHERE item_number = ? LIMIT 1').get(itemNumber) as any
-    const id = existing ? existing.id : uuidv4()
-
-    if (!existing) {
-      db.prepare(`
-        INSERT INTO work_items (id, url, item_number, is_done, created_at, updated_at)
-        VALUES (?, ?, ?, 0, ?, ?)
-      `).run(id, url, itemNumber, now, now)
+    let id: string
+    if (parsed) {
+      const existing = db
+        .prepare('SELECT id FROM work_items WHERE item_number = ? AND provider = ? LIMIT 1')
+        .get(parsed.itemNumber, parsed.provider) as { id: string } | undefined
+      id = existing?.id ?? uuidv4()
+      if (!existing) {
+        db.prepare(`
+          INSERT INTO work_items (id, url, item_number, is_done, created_at, updated_at, provider, container)
+          VALUES (?, ?, ?, 0, ?, ?, ?, ?)
+        `).run(id, parsed.url, parsed.itemNumber, now, now, parsed.provider, parsed.container)
+      }
+    } else {
+      // Plain link: item number is the last number in the URL (or the text itself)
+      const match = input.match(/(\d+)[^/]*$/)
+      const itemNumber = match ? match[1] : input
+      const existing = db
+        .prepare("SELECT id FROM work_items WHERE url = ? AND provider = 'manual' LIMIT 1")
+        .get(input) as { id: string } | undefined
+      id = existing?.id ?? uuidv4()
+      if (!existing) {
+        db.prepare(`
+          INSERT INTO work_items (id, url, item_number, is_done, created_at, updated_at, provider, container)
+          VALUES (?, ?, ?, 0, ?, ?, 'manual', '')
+        `).run(id, input, itemNumber, now, now)
+      }
     }
 
-    // Link to entity if provided (link handler already guards against duplicates)
+    // Link to entity if provided (skip if already linked)
     if (entityType && entityId) {
       const linkExists = db
         .prepare('SELECT id FROM work_item_links WHERE work_item_id = ? AND entity_type = ? AND entity_id = ?')
@@ -76,13 +93,17 @@ export function registerWorkItemHandlers(): void {
       }
     }
 
+    if (parsed) {
+      await fetchItem(parsed.itemNumber, true).catch(() => null)
+      recomputeForWorkItem(db, id)
+    }
+
     return db.prepare('SELECT * FROM work_items WHERE id = ?').get(id)
   })
 
   // Link existing work item to entity
   ipcMain.handle('workItems:link', (_, workItemId: string, entityType: string, entityId: string) => {
     const db = getDb()
-    // Check if link already exists
     const existing = db
       .prepare('SELECT id FROM work_item_links WHERE work_item_id = ? AND entity_type = ? AND entity_id = ?')
       .get(workItemId, entityType, entityId)
@@ -92,6 +113,7 @@ export function registerWorkItemHandlers(): void {
       INSERT INTO work_item_links (id, work_item_id, entity_type, entity_id)
       VALUES (?, ?, ?, ?)
     `).run(uuidv4(), workItemId, entityType, entityId)
+    recomputeForWorkItem(db, workItemId)
     return { success: true }
   })
 
@@ -100,19 +122,18 @@ export function registerWorkItemHandlers(): void {
     const db = getDb()
     db.prepare('DELETE FROM work_item_links WHERE work_item_id = ? AND entity_type = ? AND entity_id = ?')
       .run(workItemId, entityType, entityId)
+    // The note's "all done" status may change now that this item is gone
+    if (entityType === 'note') recomputeNoteDone(db, entityId)
     return { success: true }
   })
 
-  // Toggle done
+  // Toggle done (manual items only; integration items follow their source state)
   ipcMain.handle('workItems:toggleDone', (_, id: string) => {
     const db = getDb()
     const item = db.prepare('SELECT is_done FROM work_items WHERE id = ?').get(id) as { is_done: number }
     const newVal = item.is_done ? 0 : 1
     db.prepare('UPDATE work_items SET is_done = ?, updated_at = ? WHERE id = ?').run(newVal, Date.now(), id)
-
-    // Update all_work_items_done for linked notes
-    updateNoteWorkItemStatus(db, id)
-
+    recomputeForWorkItem(db, id)
     return { isDone: newVal }
   })
 
@@ -129,10 +150,13 @@ export function registerWorkItemHandlers(): void {
     return db.prepare('SELECT * FROM work_item_links WHERE work_item_id = ?').all(id)
   })
 
-  // Find a work item row by item_number (returns first match or null)
+  // Find a work item row by item_number (prefers integration-backed rows)
   ipcMain.handle('workItems:findByItemNumber', (_, itemNumber: string) => {
     const db = getDb()
-    return db.prepare('SELECT * FROM work_items WHERE item_number = ? LIMIT 1').get(itemNumber) || null
+    return db.prepare(`
+      SELECT * FROM work_items WHERE item_number = ?
+      ORDER BY CASE WHEN provider IN ('ado','jira') THEN 0 ELSE 1 END LIMIT 1
+    `).get(itemNumber) || null
   })
 
   // Get linked entities (notes/code/flows) for a work item by item_number.
@@ -142,58 +166,34 @@ export function registerWorkItemHandlers(): void {
     const items = db.prepare('SELECT id FROM work_items WHERE item_number = ?').all(itemNumber) as { id: string }[]
     if (items.length === 0) return []
 
-    const results: { entityType: string; entityId: string; title: string }[] = []
+    const results: { entityType: string; entityId: string; title: string; archived: boolean }[] = []
     for (const wi of items) {
       const links = db.prepare('SELECT id, entity_type, entity_id FROM work_item_links WHERE work_item_id = ?').all(wi.id) as { id: string; entity_type: string; entity_id: string }[]
       for (const link of links) {
-        let row: { title: string } | undefined
-        if (link.entity_type === 'note') {
-          row = db.prepare('SELECT title FROM notes WHERE id = ?').get(link.entity_id) as { title: string } | undefined
-        } else if (link.entity_type === 'code') {
-          row = db.prepare('SELECT title FROM code_blocks WHERE id = ?').get(link.entity_id) as { title: string } | undefined
-        } else if (link.entity_type === 'flow') {
-          row = db.prepare('SELECT title FROM flows WHERE id = ?').get(link.entity_id) as { title: string } | undefined
-        }
+        const table =
+          link.entity_type === 'note' ? 'notes'
+          : link.entity_type === 'code' ? 'code_blocks'
+          : link.entity_type === 'flow' ? 'flows'
+          : null
+        const row = table
+          ? (db.prepare(`SELECT title, archived_at FROM ${table} WHERE id = ?`).get(link.entity_id) as
+              | { title: string; archived_at: number | null } | undefined)
+          : undefined
 
         if (!row) {
-          // Entity was deleted — remove the stale link
+          // Entity was deleted: remove the stale link
           db.prepare('DELETE FROM work_item_links WHERE id = ?').run(link.id)
           continue
         }
 
-        results.push({ entityType: link.entity_type, entityId: link.entity_id, title: row.title || 'Untitled' })
+        results.push({
+          entityType: link.entity_type,
+          entityId: link.entity_id,
+          title: row.title || 'Untitled',
+          archived: !!row.archived_at
+        })
       }
     }
     return results
   })
-}
-
-const ADO_DONE_STATES = new Set(['Closed', 'Resolved', 'Done', 'Removed'])
-
-function updateNoteWorkItemStatus(db: Database.Database, workItemId: string): void {
-  // Get all notes linked to this work item
-  const noteLinks = db
-    .prepare("SELECT entity_id FROM work_item_links WHERE work_item_id = ? AND entity_type = 'note'")
-    .all(workItemId) as { entity_id: string }[]
-
-  for (const link of noteLinks) {
-    const noteId = link.entity_id
-    const items = db
-      .prepare(`
-        SELECT wi.is_done,
-               CASE WHEN wi.url LIKE '%dev.azure.com%' THEN 1 ELSE 0 END AS is_ado,
-               cwi.state AS cached_state
-        FROM work_items wi
-        JOIN work_item_links wil ON wi.id = wil.work_item_id
-        LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
-        WHERE wil.entity_type = 'note' AND wil.entity_id = ?
-      `)
-      .all(noteId) as { is_done: number; is_ado: number; cached_state: string | null }[]
-
-    const allDone = items.length > 0 && items.every((i) => {
-      if (i.is_ado && i.cached_state) return ADO_DONE_STATES.has(i.cached_state)
-      return i.is_done === 1
-    })
-    db.prepare('UPDATE notes SET all_work_items_done = ? WHERE id = ?').run(allDone ? 1 : 0, noteId)
-  }
 }

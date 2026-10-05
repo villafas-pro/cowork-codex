@@ -7,7 +7,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { useAppStore } from '../store/appStore'
-import { TYPE_COLORS, STATE_COLORS, DONE_STATES } from '../lib/workItemUtils'
+import { TYPE_COLORS, stateColor, effectiveDone, displayKey, type WorkItem, type StateCategory } from '../lib/workItemUtils'
 
 interface RecentItem {
   id: string
@@ -21,6 +21,7 @@ interface DisplayWorkItem {
   title: string
   type: string | null
   state: string | null
+  state_category: StateCategory | null
   assigned_to: string | null
   is_linked: boolean
 }
@@ -92,20 +93,23 @@ export default function Home(): React.JSX.Element {
       window.api?.flows.getAll() ?? [],
     ])
 
+    // Archived items stay out of "Recently Opened"
+    const active = (items: any[]): any[] => items.filter((i: any) => !i.archived_at)
+
     const merged: RecentItem[] = [
-      ...(notes as any[]).map((n: any) => ({
+      ...active(notes as any[]).map((n: any) => ({
         id: n.id,
         title: n.title,
         updated_at: n.updated_at,
         entityType: 'note' as const,
       })),
-      ...(codeBlocks as any[]).map((c: any) => ({
+      ...active(codeBlocks as any[]).map((c: any) => ({
         id: c.id,
         title: c.title,
         updated_at: c.updated_at,
         entityType: 'code' as const,
       })),
-      ...(flows as any[]).map((f: any) => ({
+      ...active(flows as any[]).map((f: any) => ({
         id: f.id,
         title: f.title,
         updated_at: f.updated_at,
@@ -118,21 +122,20 @@ export default function Home(): React.JSX.Element {
   }
 
   async function loadWorkItems(): Promise<void> {
-    // Load local linked items immediately so the UI isn't empty while ADO loads
-    const localAll: any[] = (await window.api?.workItems.getAll()) || []
-    const localOpen = localAll.filter((wi) => {
-      if (wi.is_ado && wi.cached_state) return !DONE_STATES.has(wi.cached_state)
-      return true
-    })
+    // Load local linked items immediately so the UI isn't empty while the integrations load
+    const localAll: WorkItem[] = (await window.api?.workItems.getAll()) || []
+    // Only items that are still open
+    const localOpen = localAll.filter((wi) => !effectiveDone(wi))
 
     const localMap = new Map<string, boolean>()
     const display: DisplayWorkItem[] = localOpen.map((wi) => {
       localMap.set(wi.item_number, true)
       return {
         item_number: wi.item_number,
-        title: wi.cached_title || `#${wi.item_number}`,
+        title: wi.cached_title || displayKey(wi.provider, wi.item_number),
         type: wi.cached_type,
         state: wi.cached_state,
+        state_category: wi.cached_state_category,
         assigned_to: wi.cached_assigned_to,
         is_linked: true,
       }
@@ -140,30 +143,27 @@ export default function Home(): React.JSX.Element {
 
     setWorkItems(display)
 
-    // Background: fetch ADO items assigned to me and merge in
+    // Background: fetch open items assigned to me from every connection (ADO and Jira) and merge in
     try {
-      const adoResults: any[] = (await window.api?.ado.search({
+      const results = (await window.api?.integrations.search({
         search: '',
         assignedToMe: true,
         type: '',
         state: '',
+        excludeDone: true,
       })) || []
 
-      if (adoResults.length > 0) {
+      if (results.length > 0) {
         const merged = [...display]
-        for (const item of adoResults) {
-          const idStr = String(item.id)
-          if (!localMap.has(idStr) && !DONE_STATES.has(item.state)) {
-            const assignedTo =
-              typeof item.assignedTo === 'string'
-                ? item.assignedTo
-                : (item.assignedTo as any)?.displayName || null
+        for (const item of results) {
+          if (!localMap.has(item.id)) {
             merged.push({
-              item_number: idStr,
+              item_number: item.id,
               title: item.title,
               type: item.type || null,
               state: item.state || null,
-              assigned_to: assignedTo,
+              state_category: null,
+              assigned_to: item.assignedTo || null,
               is_linked: false,
             })
           }
@@ -171,7 +171,7 @@ export default function Home(): React.JSX.Element {
         setWorkItems(merged.slice(0, 10))
       }
     } catch {
-      // ADO not configured or unavailable — local items already shown
+      // No connections configured or unavailable. Local items are already shown.
     }
   }
 
@@ -253,7 +253,7 @@ export default function Home(): React.JSX.Element {
               ) : (
                 workItems.map((wi) => {
                   const typeColor = TYPE_COLORS[wi.type || ''] || '#555'
-                  const stateColor = STATE_COLORS[wi.state || ''] || '#888'
+                  const stateCol = stateColor(wi.state, wi.state_category)
                   return (
                     <button
                       key={wi.item_number}
@@ -273,7 +273,7 @@ export default function Home(): React.JSX.Element {
                             </span>
                           )}
                           {wi.state && (
-                            <span className="text-[10px]" style={{ color: stateColor }}>
+                            <span className="text-[10px]" style={{ color: stateCol }}>
                               {wi.state}
                             </span>
                           )}
@@ -283,7 +283,9 @@ export default function Home(): React.JSX.Element {
                         </div>
                       </div>
                       {wi.is_linked && (
-                        <Link size={11} className="text-th-tx-5 flex-shrink-0 mt-0.5" title="Linked in a note" />
+                        <span title="Linked in a note" className="flex-shrink-0 mt-0.5">
+                          <Link size={11} className="text-th-tx-5" />
+                        </span>
                       )}
                     </button>
                   )

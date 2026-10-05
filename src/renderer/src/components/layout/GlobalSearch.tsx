@@ -8,6 +8,7 @@ interface SearchResult {
   type: 'note' | 'code' | 'flow' | 'work-item'
   snippet: string
   updated_at: number
+  archived_at?: number | null
 }
 
 const typeIcon = {
@@ -29,6 +30,7 @@ export default function GlobalSearch(): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [selected, setSelected] = useState(0)
+  const [includeArchived, setIncludeArchived] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -46,12 +48,12 @@ export default function GlobalSearch(): React.JSX.Element {
       return
     }
     const timer = setTimeout(async () => {
-      const res = await window.api?.search.global(query)
+      const res = await window.api?.search.global(query, includeArchived)
       setResults(res || [])
       setSelected(0)
     }, 200)
     return () => clearTimeout(timer)
-  }, [query])
+  }, [query, includeArchived])
 
   const handleSelect = (result: SearchResult): void => {
     openTab({ entityType: result.type, entityId: result.id, title: result.title })
@@ -97,6 +99,15 @@ export default function GlobalSearch(): React.JSX.Element {
               <X size={14} />
             </button>
           )}
+          <label className="flex items-center gap-1.5 text-xs text-th-tx-4 cursor-pointer select-none flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+              className="accent-[#e8b800]"
+            />
+            Archived
+          </label>
           <span className="text-th-tx-4 text-xs">Esc</span>
         </div>
 
@@ -116,6 +127,9 @@ export default function GlobalSearch(): React.JSX.Element {
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-th-tx-1 truncate">{result.title}</span>
                     <span className="text-xs text-th-tx-4 flex-shrink-0">{typeLabel[result.type]}</span>
+                    {result.archived_at ? (
+                      <span className="text-[10px] text-th-tx-5 border border-th-bd-2 rounded px-1 flex-shrink-0">Archived</span>
+                    ) : null}
                   </div>
                   {result.snippet && (
                     <p

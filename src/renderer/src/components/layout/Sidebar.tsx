@@ -1,5 +1,5 @@
 import React from 'react'
-import { Home, FileText, Code2, GitBranch, CheckSquare, Image, Settings, Sun, Moon, AlertTriangle } from 'lucide-react'
+import { Home, FileText, Code2, GitBranch, Tag, CheckSquare, Image, Settings, Sun, Moon, AlertTriangle } from 'lucide-react'
 import { useAppStore, type Section } from '../../store/appStore'
 
 const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
@@ -7,13 +7,15 @@ const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'notes', label: 'Notes', icon: <FileText size={18} /> },
   { id: 'code', label: 'Code', icon: <Code2 size={18} /> },
   { id: 'flow', label: 'Flow', icon: <GitBranch size={18} /> },
+  { id: 'tags', label: 'Tags', icon: <Tag size={18} /> },
   { id: 'work-items', label: 'Work Items', icon: <CheckSquare size={18} /> },
   { id: 'images', label: 'Images', icon: <Image size={18} /> }
 ]
 
 export default function Sidebar(): React.JSX.Element {
-  const { activeSection, setActiveSection, theme, toggleTheme, viewMode, adoStatus } = useAppStore()
-  const adoError = adoStatus === 'error'
+  const { activeSection, setActiveSection, theme, toggleTheme, viewMode, integrationStatus, integrationFailures } = useAppStore()
+  const integrationError = integrationStatus === 'error'
+  const failureSummary = integrationFailures.map((f) => `${f.name}: ${f.error}`).join('\n')
 
   return (
     <aside className="flex flex-col w-[52px] h-full bg-th-bg-0 border-r border-th-bd-2 py-3 items-center titlebar-no-drag flex-shrink-0">
@@ -38,7 +40,7 @@ export default function Sidebar(): React.JSX.Element {
         {navItems.map((item) => (
           <button
             key={item.id}
-            title={item.id === 'work-items' && adoError ? 'Work Items — ADO connection error' : item.label}
+            title={item.id === 'work-items' && integrationError ? `Work Items: connection error\n${failureSummary}` : item.label}
             onClick={() => setActiveSection(item.id)}
             className={`
               relative w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-150
@@ -50,7 +52,7 @@ export default function Sidebar(): React.JSX.Element {
             `}
           >
             {item.icon}
-            {item.id === 'work-items' && adoError && (
+            {item.id === 'work-items' && integrationError && (
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-th-bg-0" />
             )}
           </button>
@@ -59,9 +61,9 @@ export default function Sidebar(): React.JSX.Element {
 
       {/* Bottom controls */}
       <div className="flex flex-col gap-1 w-full px-1.5">
-        {adoError && (
+        {integrationError && (
           <button
-            title="ADO connection error — click to go to Settings"
+            title={`Connection error, click to open Settings\n${failureSummary}`}
             onClick={() => setActiveSection('settings')}
             className="w-full flex items-center justify-center p-2.5 rounded-md text-amber-500 hover:bg-th-bg-4 transition-all duration-150"
           >

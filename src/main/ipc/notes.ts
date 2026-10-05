@@ -63,7 +63,8 @@ export function registerNoteHandlers(): void {
     const db = getDb()
     // Return all notes; content is not decrypted here (list view doesn't need it).
     // Expose has_password flag, linked_work_item_count, and has_active_work_items for home page.
-    // has_active_work_items is ADO-aware: ADO items use cached_state, non-ADO use is_done.
+    // Active count is integration-aware: ADO/Jira items use their cached state category,
+    // manual items use is_done.
     return (db.prepare(`
       SELECT n.*,
         (SELECT COUNT(*)
@@ -76,8 +77,8 @@ export function registerNoteHandlers(): void {
          LEFT JOIN cached_work_items cwi ON cwi.id = wi.item_number
          WHERE wil.entity_type = 'note' AND wil.entity_id = n.id
            AND CASE
-             WHEN wi.url LIKE '%dev.azure.com%' AND cwi.state IS NOT NULL
-               THEN cwi.state NOT IN ('Closed','Resolved','Done','Removed')
+             WHEN wi.provider IN ('ado','jira') AND COALESCE(cwi.state_category, '') <> ''
+               THEN cwi.state_category <> 'done'
              ELSE wi.is_done = 0
            END
         ) AS active_work_item_count

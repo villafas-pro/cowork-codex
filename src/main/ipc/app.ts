@@ -17,8 +17,12 @@ export function registerAppHandlers(): void {
   })
 
   // Open external URL in browser
+  // Only web and mail links; a pasted work item "URL" could be anything (file:, javascript:, ...)
   ipcMain.handle('shell:openExternal', (_, url: string) => {
-    shell.openExternal(url)
+    try {
+      const protocol = new URL(url).protocol
+      if (['http:', 'https:', 'mailto:'].includes(protocol)) shell.openExternal(url)
+    } catch { /* not a URL: ignore */ }
   })
 
   // Tab management
@@ -30,14 +34,18 @@ export function registerAppHandlers(): void {
           WHEN 'note'      THEN COALESCE(n.title, 'Untitled')
           WHEN 'code'      THEN COALESCE(c.title, 'Untitled')
           WHEN 'flow'      THEN COALESCE(f.title, 'Untitled')
-          WHEN 'work-item' THEN COALESCE('#' || w.item_number, 'Work Item')
+          -- Work item tabs are keyed by item number (ADO "123", Jira "OB-123")
+          WHEN 'work-item' THEN COALESCE(
+            NULLIF(cw.title, ''),
+            CASE WHEN t.entity_id GLOB '*[^0-9]*' THEN t.entity_id ELSE '#' || t.entity_id END
+          )
           ELSE 'Untitled'
         END as title
       FROM open_tabs t
       LEFT JOIN notes n       ON t.entity_type = 'note'      AND t.entity_id = n.id
       LEFT JOIN code_blocks c ON t.entity_type = 'code'      AND t.entity_id = c.id
       LEFT JOIN flows f       ON t.entity_type = 'flow'      AND t.entity_id = f.id
-      LEFT JOIN work_items w  ON t.entity_type = 'work-item' AND t.entity_id = w.id
+      LEFT JOIN cached_work_items cw ON t.entity_type = 'work-item' AND t.entity_id = cw.id
       ORDER BY t.tab_order ASC
     `).all()
   })
@@ -72,10 +80,13 @@ export function registerAppHandlers(): void {
   })
 
   // Global search
-  ipcMain.handle('search:global', (_, query: string) => {
+  ipcMain.handle('search:global', (_, query: string, includeArchived = false) => {
     if (!query.trim()) return []
     const db = getDb()
     const like = `%${query}%`
+    // Archived items are hidden unless the caller opts in
+    const notArchived = includeArchived ? '' : 'AND archived_at IS NULL'
+    const nNotArchived = includeArchived ? '' : 'AND n.archived_at IS NULL'
 
     // Notes — try FTS first, fall back to LIKE if it throws (e.g. special chars)
     let notes: unknown[] = []
@@ -84,11 +95,11 @@ export function registerAppHandlers(): void {
       const ftsQuery = query.replace(/["()*:^~\-]/g, ' ').trim()
       if (ftsQuery) {
         notes = db.prepare(`
-          SELECT n.id, n.title, n.updated_at, 'note' as type,
+          SELECT n.id, n.title, n.updated_at, n.archived_at, 'note' as type,
                  snippet(notes_fts, 2, '<mark>', '</mark>', '...', 15) as snippet
           FROM notes_fts
           JOIN notes n ON notes_fts.id = n.id
-          WHERE notes_fts MATCH ?
+          WHERE notes_fts MATCH ? ${nNotArchived}
           ORDER BY rank LIMIT 10
         `).all(`${ftsQuery}*`)
       }
@@ -97,25 +108,25 @@ export function registerAppHandlers(): void {
     }
     if (notes.length === 0) {
       notes = db.prepare(`
-        SELECT id, title, updated_at, 'note' as type, '' as snippet
-        FROM notes WHERE title LIKE ? OR content LIKE ? LIMIT 10
+        SELECT id, title, updated_at, archived_at, 'note' as type, '' as snippet
+        FROM notes WHERE (title LIKE ? OR content LIKE ?) ${notArchived} LIMIT 10
       `).all(like, like)
     }
 
     const code = db.prepare(`
-      SELECT id, title, updated_at, 'code' as type, language as snippet
-      FROM code_blocks WHERE title LIKE ? OR content LIKE ? LIMIT 10
+      SELECT id, title, updated_at, archived_at, 'code' as type, language as snippet
+      FROM code_blocks WHERE (title LIKE ? OR content LIKE ?) ${notArchived} LIMIT 10
     `).all(like, like)
 
     const flows = db.prepare(`
-      SELECT id, title, updated_at, 'flow' as type, '' as snippet
-      FROM flows WHERE title LIKE ? LIMIT 10
+      SELECT id, title, updated_at, archived_at, 'flow' as type, '' as snippet
+      FROM flows WHERE title LIKE ? ${notArchived} LIMIT 10
     `).all(like)
 
     const workItems = db.prepare(`
       SELECT
         wi.item_number as id,
-        COALESCE(cwi.title, '#' || wi.item_number) as title,
+        COALESCE(cwi.title, CASE WHEN wi.provider = 'jira' THEN wi.item_number ELSE '#' || wi.item_number END) as title,
         wi.updated_at,
         'work-item' as type,
         CASE WHEN cwi.type IS NOT NULL

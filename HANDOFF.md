@@ -52,7 +52,9 @@ Key namespaces on `window.api`:
 - `code` — CRUD, togglePin, syncBlocks, import, linkNote, unlinkNote, getForNote
 - `flows` — CRUD, togglePin, linkNote, unlinkNote, getForNote
 - `workItems` — CRUD, link/unlink to entities, toggleDone, getForEntity, findByItemNumber
-- `ado` — getConfig, setConfig, testConnection, search, isConfigured, fetchWorkItem, syncLinkedWorkItems
+- `integrations` — work item providers (Azure DevOps and Jira): getConnections, saveConnection, deleteConnection, testConnection, isConfigured, checkAll, search, fetchItem, syncLinked, parseRef. Code lives in `src/main/integrations/` (one provider file per system behind a shared `Provider` interface). Tokens are encrypted with Electron `safeStorage` and never reach the renderer.
+- `tags` — getAll, create, update, delete, merge, getAssignments, assign, unassign, getItems (tags apply to notes, code blocks and flows, not work items)
+- `archive` — set, archiveCompletedNotes (`archived_at` column on notes, code_blocks, flows; archived items are hidden from lists, Home and global search by default)
 - `tabs` — getAll, save
 - `settings` — get, set
 - `templates` — getAll, create, delete
@@ -80,7 +82,17 @@ Key namespaces on `window.api`:
 - ✅ Back/forward navigation history
 - ✅ Pinned notes
 - ✅ Code blocks: language picker, copy, sync blocks, import from note
+- ✅ Tags (filter bar, `#tag` search, per-item picker, Tags page with rename/recolor/merge/delete) and archive/restore on notes, code and flows
+- ✅ Month headings in the Notes, Code and Flow lists
+- ✅ List rows have one "..." menu (`RowMenu`: tags, pin, lock, archive, delete); pin/lock/password show as small icons only when active. Popovers (`Popover.tsx`) use a portal plus full-screen backdrop so dismissing never clicks through to the row beneath.
+- ✅ Multiselect on Notes/Code/Flow (`lib/selection.ts`, `BulkBar.tsx`): checkbox, Ctrl/Cmd+click, Shift+click range, Esc clears; bulk tag (all/some/none check marks), archive/restore, delete (locked notes skipped)
+- ✅ Jira Cloud integration alongside Azure DevOps. Work items store `provider` (ado/jira/manual) and `container` (project); item numbers are ADO "123" or Jira "OB-123". "Done" uses a provider-neutral `state_category`. Work Items page can group/filter by project.
 
+## Notes on work items
+- `work_items.provider = 'manual'` means a plain link the user ticks off themselves.
+- ADO PATs used to live in `settings` (plain text). On first launch they migrate into the `connections` table, encrypted. Older database backups still contain the plain-text token.
+- Encrypted tokens only decrypt for the same Windows user on the same PC. If the OneDrive database is opened elsewhere, Settings shows a "re-enter token" warning.
+- Jira search uses `POST /rest/api/3/search/jql`. Verify against Atlassian's docs if Jira search ever returns errors.
 ---
 
 ## Recent Fixes (This Session)

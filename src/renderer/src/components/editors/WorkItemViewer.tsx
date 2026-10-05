@@ -6,29 +6,9 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import type { EntityType } from '../../store/appStore'
-import { TYPE_COLORS, STATE_COLORS } from '../../lib/workItemUtils'
-
-interface CachedWorkItem {
-  id: string
-  title: string
-  type: string
-  state: string
-  assigned_to: string
-  created_by: string
-  description: string
-  acceptance_criteria: string
-  tags: string
-  iteration_path: string
-  area_path: string
-  priority: number | null
-  story_points: number | null
-  parent_id: number | null
-  comment_count: number
-  ado_url: string
-  created_at_ado: string
-  changed_at_ado: string
-  last_synced_at: number
-}
+import {
+  TYPE_COLORS, stateColor, PROVIDER_LABELS, displayKey, type CachedWorkItem
+} from '../../lib/workItemUtils'
 
 const PRIORITY_LABELS: Record<number, string> = {
   1: 'Critical',
@@ -87,7 +67,7 @@ const ENTITY_ICONS: Record<EntityType, React.ReactNode> = {
   'work-item': null,
 }
 
-export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.Element {
+export default function WorkItemViewer({ itemNumber }: { itemNumber: string }): React.JSX.Element {
   const { updateTabTitle, openTab } = useAppStore()
   const [item, setItem] = useState<CachedWorkItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -98,12 +78,12 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
 
   const load = useCallback(async (force = false) => {
     try {
-      const result = await window.api?.ado.fetchWorkItem(parseInt(adoId, 10), force)
+      const result = await window.api?.integrations.fetchItem(itemNumber, force)
       if (result) {
         setItem(result)
-        updateTabTitle(adoId, result.title || `#${adoId}`)
+        updateTabTitle(itemNumber, result.title || displayKey(result.provider, itemNumber))
       } else {
-        setError('Work item not found or ADO not configured.')
+        setError('Work item not found, or its connection is not configured. Check Settings.')
       }
     } catch (e: any) {
       setError(e.message || 'Failed to load work item.')
@@ -111,7 +91,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
       setLoading(false)
       setRefreshing(false)
     }
-  }, [adoId])
+  }, [itemNumber])
 
   useEffect(() => {
     setLoading(true)
@@ -119,16 +99,16 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
     setItem(null)
     setLinkedEntities([])
     load(false)
-    window.api?.workItems.getLinkedEntities(adoId).then(setLinkedEntities).catch(() => {})
-  }, [adoId])
+    window.api?.workItems.getLinkedEntities(itemNumber).then(setLinkedEntities).catch(() => {})
+  }, [itemNumber])
 
   async function reloadLinkedEntities(): Promise<void> {
-    const entities = await window.api?.workItems.getLinkedEntities(adoId).catch(() => [])
+    const entities = await window.api?.workItems.getLinkedEntities(itemNumber).catch(() => [])
     setLinkedEntities(entities || [])
   }
 
   async function createLinked(entityType: 'note' | 'code' | 'flow'): Promise<void> {
-    const title = item?.title || `#${adoId}`
+    const title = item?.title || displayKey(item?.provider, itemNumber)
     setCreating(entityType)
     try {
       let entity: { id: string } | null | undefined
@@ -137,8 +117,8 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
       else entity = await window.api?.flows.create({ title })
       if (entity) {
         // Find the work_item row by item_number — create one if it doesn't exist yet
-        let wi = await window.api?.workItems.findByItemNumber(adoId)
-        if (!wi) wi = await window.api?.workItems.create(item?.ado_url || adoId)
+        let wi = await window.api?.workItems.findByItemNumber(itemNumber)
+        if (!wi) wi = await window.api?.workItems.create(item?.url || itemNumber)
         if (wi) await window.api?.workItems.link(wi.id, entityType, entity.id)
         await reloadLinkedEntities()
         openTab({ entityType, entityId: entity.id, title })
@@ -154,8 +134,12 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
   }
 
   const openParent = (): void => {
-    if (item?.parent_id) {
-      openTab({ entityType: 'work-item', entityId: String(item.parent_id), title: `#${item.parent_id}` })
+    if (item?.parent_key) {
+      openTab({
+        entityType: 'work-item',
+        entityId: item.parent_key,
+        title: displayKey(item.provider, item.parent_key)
+      })
     }
   }
 
@@ -183,7 +167,9 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
   }
 
   const typeColor = TYPE_COLORS[item.type] || '#555'
-  const stateColor = STATE_COLORS[item.state] || '#888'
+  const stateCol = stateColor(item.state, item.state_category)
+  const sourceName = PROVIDER_LABELS[item.provider]
+  const isJira = item.provider === 'jira'
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -202,12 +188,17 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
           {/* State pill */}
           <span
             className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-            style={{ background: stateColor + '22', color: stateColor }}
+            style={{ background: stateCol + '22', color: stateCol }}
           >
             {item.state}
           </span>
 
-          <span className="text-xs text-th-tx-6 flex-shrink-0">#{item.id}</span>
+          <span className="text-xs text-th-tx-6 flex-shrink-0">{displayKey(item.provider, item.id)}</span>
+          {item.container && (
+            <span className="text-[10px] text-th-tx-5 px-1.5 py-0.5 rounded border border-th-bd-2 flex-shrink-0" title={`${sourceName} project`}>
+              {item.container}
+            </span>
+          )}
 
           <div className="flex-1" />
 
@@ -220,7 +211,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            title="Refresh from ADO"
+            title={`Refresh from ${sourceName}`}
             className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all flex-shrink-0 disabled:opacity-40"
           >
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
@@ -228,8 +219,8 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
 
           {/* Open in browser */}
           <button
-            onClick={() => window.api?.shell.openExternal(item.ado_url)}
-            title="Open in Azure DevOps"
+            onClick={() => window.api?.shell.openExternal(item.url)}
+            title={`Open in ${sourceName}`}
             className="p-1.5 rounded text-th-tx-6 hover:text-th-tx-2 hover:bg-th-bg-4 transition-all flex-shrink-0"
           >
             <ExternalLink size={12} />
@@ -278,12 +269,12 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
               {item.iteration_path && (
                 <div className="flex items-center gap-2 col-span-2">
                   <GitBranch size={11} className="text-th-tx-6 flex-shrink-0" />
-                  <span className="text-th-tx-5">Iteration</span>
+                  <span className="text-th-tx-5">{isJira ? 'Sprint' : 'Iteration'}</span>
                   <span className="text-th-tx-2">{item.iteration_path.split('\\').pop()}</span>
-                  <span className="text-th-tx-6 text-[10px]">{item.iteration_path}</span>
+                  {!isJira && <span className="text-th-tx-6 text-[10px]">{item.iteration_path}</span>}
                 </div>
               )}
-              {item.parent_id && (
+              {item.parent_key && (
                 <div className="flex items-center gap-2">
                   <ChevronRight size={11} className="text-th-tx-6 flex-shrink-0" />
                   <span className="text-th-tx-5">Parent</span>
@@ -291,7 +282,7 @@ export default function WorkItemViewer({ adoId }: { adoId: string }): React.JSX.
                     onClick={openParent}
                     className="text-accent hover:underline transition-all"
                   >
-                    #{item.parent_id}
+                    {displayKey(item.provider, item.parent_key)}
                   </button>
                 </div>
               )}

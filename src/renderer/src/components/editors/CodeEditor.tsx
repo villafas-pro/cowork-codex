@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import { Pin, Trash2, ChevronDown, Link2, Plus, Clipboard, X, Copy, Check, FileText } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import EntityTagsArchive from '../EntityTagsArchive'
 import WorkItemSearch from '../WorkItemSearch'
 import { type WorkItem, effectiveDone } from '../../lib/workItemUtils'
 import WorkItemRow from '../WorkItemRow'
@@ -13,7 +14,7 @@ const LANGUAGES = [
 ]
 
 export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus, showConfirm } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, integrationStatus, showConfirm } = useAppStore()
   const [title, setTitle] = useState('')
   const [language, setLanguage] = useState('plaintext')
   const [content, setContent] = useState('')
@@ -37,7 +38,7 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     loadBlock()
     loadWorkItems()
     loadAllNotes()
-    window.api?.ado.isConfigured().then(setAdoConfigured)
+    window.api?.integrations.isConfigured().then(setAdoConfigured)
   }, [blockId])
 
   async function loadBlock(): Promise<void> {
@@ -154,9 +155,7 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
     if (item) {
       setNewItemUrl('')
       setShowAddItem(false)
-      if (target.includes('dev.azure.com')) {
-        await window.api?.ado.fetchWorkItem(parseInt(item.item_number, 10)).catch(() => {})
-      }
+      // The main process fetches ADO/Jira details while linking, so the list is already enriched
       await loadWorkItems()
     }
   }
@@ -227,6 +226,7 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </button>
+          <EntityTagsArchive entityType="code" entityId={blockId} />
           <button
             onClick={togglePin}
             className={`p-1.5 rounded transition-all flex-shrink-0 ${isPinned ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`}
@@ -401,9 +401,9 @@ export default function CodeEditor({ blockId }: { blockId: string }): React.JSX.
                   <WorkItemRow
                     key={item.id}
                     item={item}
-                    adoStatus={adoStatus}
+                    integrationStatus={integrationStatus}
                     onToggle={toggleWorkItem}
-                    onOpen={(i) => openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || `#${i.item_number}` })}
+                    onOpen={(i) => i.is_tracked ? openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || (/\D/.test(i.item_number) ? i.item_number : `#${i.item_number}`) }) : window.api?.shell.openExternal(i.url)}
                     onRemove={removeWorkItem}
                   />
                 ))

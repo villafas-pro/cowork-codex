@@ -13,6 +13,7 @@ import {
   Lock, LockOpen, KeyRound, Eye, EyeOff, History, RotateCcw, Code2, GitBranch
 } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import EntityTagsArchive from '../EntityTagsArchive'
 import { NoteLink } from './extensions/NoteLink'
 import { CodeEmbed } from './extensions/CodeEmbed'
 import { FlowEmbed } from './extensions/FlowEmbed'
@@ -54,7 +55,7 @@ function PasswordField({
 }
 
 export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.Element {
-  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, adoStatus, showConfirm } = useAppStore()
+  const { updateTabTitle, closeTab, tabs, setActiveSection, openTab, integrationStatus, showConfirm } = useAppStore()
   const [title, setTitle] = useState('')
   const [workItems, setWorkItems] = useState<WorkItem[]>([])
   const [newItemUrl, setNewItemUrl] = useState('')
@@ -126,7 +127,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     loadLinkedFlows()
     loadAllCode()
     loadAllFlows()
-    window.api?.ado.isConfigured().then(setAdoConfigured)
+    window.api?.integrations.isConfigured().then(setAdoConfigured)
   }, [noteId])
 
   // Image paste + drag-and-drop handler
@@ -582,10 +583,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
     if (item) {
       setNewItemUrl('')
       setShowAddItem(false)
-      // Fetch ADO cache first so the list shows enriched data immediately
-      if (target.includes('dev.azure.com')) {
-        await window.api?.ado.fetchWorkItem(parseInt(item.item_number, 10)).catch(() => {})
-      }
+      // The main process fetches ADO/Jira details while linking, so the list is already enriched
       await loadWorkItems()
     }
   }
@@ -700,6 +698,7 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
           >
             {isLocked ? <Lock size={13} /> : <LockOpen size={13} />}
           </button>
+          <EntityTagsArchive entityType="note" entityId={noteId} />
           <button onClick={togglePin} className={`p-1.5 rounded transition-all ${isPinned ? 'text-accent' : 'text-th-tx-5 hover:text-th-tx-2'}`} title={isPinned ? 'Unpin' : 'Pin note'}>
             <Pin size={13} />
           </button>
@@ -863,9 +862,9 @@ export default function NoteEditor({ noteId }: { noteId: string }): React.JSX.El
                   <WorkItemRow
                     key={item.id}
                     item={item}
-                    adoStatus={adoStatus}
+                    integrationStatus={integrationStatus}
                     onToggle={toggleWorkItem}
-                    onOpen={(i) => openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || `#${i.item_number}` })}
+                    onOpen={(i) => i.is_tracked ? openTab({ entityType: 'work-item', entityId: i.item_number, title: i.cached_title || (/\D/.test(i.item_number) ? i.item_number : `#${i.item_number}`) }) : window.api?.shell.openExternal(i.url)}
                     onRemove={isLocked ? undefined : removeWorkItem}
                   />
                 ))

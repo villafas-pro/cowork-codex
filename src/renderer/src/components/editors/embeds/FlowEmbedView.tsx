@@ -75,7 +75,7 @@ function FlowEmbedInner({ flowId, onDelete, selected, onGripMouseDown }: {
   // without needing to re-register on every focus change.
   useEffect(() => {
     const focusHandler = (e: MouseEvent): void => {
-      embedFocusedRef.current = !!wrapperRef.current?.contains(e.target as Node)
+      embedFocusedRef.current = !!wrapperRef.current?.contains(e.target as globalThis.Node)
     }
     document.addEventListener('mousedown', focusHandler, true)
 

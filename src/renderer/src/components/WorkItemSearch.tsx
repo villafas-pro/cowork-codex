@@ -1,17 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, Loader, User, Plus, ExternalLink, AlertCircle, Layers, X, FileText, Code2, Workflow } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
-import { TYPE_COLORS, STATE_COLORS } from '../lib/workItemUtils'
-
-interface WorkItemResult {
-  id: number
-  title: string
-  type: string
-  state: string
-  assignedTo: string
-  iterationPath: string
-  url: string
-}
+import {
+  TYPE_COLORS, stateColor, PROVIDER_LABELS, PROVIDER_SHORT, displayKey,
+  WORK_ITEM_TYPES, WORK_ITEM_STATES, type SearchResult as WorkItemResult, type ConnectionInfo
+} from '../lib/workItemUtils'
 
 interface CachedDetails {
   description: string
@@ -32,9 +25,6 @@ interface Props {
   mode?: 'link' | 'search'
 }
 
-const WORK_ITEM_TYPES = ['', 'Bug', 'Task', 'User Story', 'Feature', 'Epic', 'Test Case']
-const WORK_ITEM_STATES = ['', 'Active', 'New', 'Resolved', 'Closed', 'In Progress', 'Done']
-
 const PRIORITY_LABELS: Record<number, string> = { 1: 'Critical', 2: 'High', 3: 'Medium', 4: 'Low' }
 const PRIORITY_COLORS: Record<number, string> = { 1: '#cc3333', 2: '#e8b800', 3: '#007acc', 4: '#666' }
 
@@ -47,7 +37,9 @@ const POPUP_WIDTH = 288
 
 export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Props): React.JSX.Element {
   const { openTab } = useAppStore()
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [connections, setConnections] = useState<ConnectionInfo[]>([])
+  const [connectionId, setConnectionId] = useState('')
   const [creating, setCreating] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [assignedToMe, setAssignedToMe] = useState(false)
@@ -59,7 +51,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
   const [error, setError] = useState('')
 
   // Hover popup state
-  const [hoveredId, setHoveredId] = useState<number | null>(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [popupPos, setPopupPos] = useState<{ top: number; left?: number; right?: number }>({ top: 0, right: 0 })
   const [details, setDetails] = useState<CachedDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
@@ -73,6 +65,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
 
   useEffect(() => {
     searchRef.current?.focus()
+    window.api?.integrations.getConnections().then((c) => setConnections(c || []))
   }, [])
 
   // Re-search whenever a filter chip changes (skip the initial mount)
@@ -80,17 +73,19 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
     if (filterMountRef.current) { filterMountRef.current = false; return }
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     doSearch()
-  }, [assignedToMe, type, state])
+  }, [assignedToMe, type, state, connectionId])
 
   async function doSearch(): Promise<void> {
     setLoading(true)
     setError('')
     setSearched(true)
     try {
-      const res = await window.api?.ado.search({ search, assignedToMe, type, state })
+      const res = await window.api?.integrations.search({
+        search, assignedToMe, type, state, connectionId: connectionId || undefined
+      })
       setResults(res || [])
     } catch (e: any) {
-      setError('Search failed. Check your ADO settings.')
+      setError('Search failed. Check your connections in Settings.')
       setResults([])
     } finally {
       setLoading(false)
@@ -144,7 +139,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
     enterTimer.current = setTimeout(async () => {
       setDetailsLoading(true)
       try {
-        const cached = await window.api?.ado.fetchWorkItem(item.id)
+        const cached = await window.api?.integrations.fetchItem(item.id)
         if (cached) {
           setDetails(cached)
           // Let the DOM paint at opacity:0 first, then fade in
@@ -222,10 +217,20 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
             <User size={10} />
             Me
           </button>
+          {connections.length > 1 && (
+            <div className="relative">
+              <select value={connectionId} onChange={(e) => setConnectionId(e.target.value)} className={selectClass}>
+                <option value="">All sources</option>
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="relative">
             <select value={type} onChange={(e) => setType(e.target.value)} className={selectClass}>
               <option value="">All types</option>
-              {WORK_ITEM_TYPES.filter(Boolean).map((t) => (
+              {WORK_ITEM_TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
@@ -233,7 +238,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
           <div className="relative">
             <select value={state} onChange={(e) => setState(e.target.value)} className={selectClass}>
               <option value="">All states</option>
-              {WORK_ITEM_STATES.filter(Boolean).map((s) => (
+              {WORK_ITEM_STATES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -258,7 +263,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
                     ref={(el) => { if (el && hoveredId === item.id) { /* already tracking */ } }}
                     onMouseEnter={(e) => handleRowEnter(item, e.currentTarget)}
                     onMouseLeave={handleRowLeave}
-                    onClick={() => openTab({ entityType: 'work-item', entityId: String(item.id), title: `#${item.id}` })}
+                    onClick={() => openTab({ entityType: 'work-item', entityId: item.id, title: displayKey(item.provider, item.id) })}
                     className="flex items-center gap-1.5 px-2 py-2 cursor-pointer"
                   >
                     <span
@@ -268,7 +273,10 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
                     <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                       <span className="text-xs text-th-tx-1 truncate">{item.title}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-th-tx-5">#{item.id}</span>
+                        <span className="text-[10px] text-th-tx-5">{displayKey(item.provider, item.id)}</span>
+                        {connections.length > 1 && (
+                          <span className="text-[9px] text-th-tx-6 border border-th-bd-2 rounded px-1">{PROVIDER_SHORT[item.provider]}</span>
+                        )}
                         <span className="text-[10px] text-th-tx-6">{item.state}</span>
                         {mode === 'search' && sprint && (
                           <span className="text-[10px] text-th-tx-5 truncate">{sprint}</span>
@@ -282,7 +290,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
                     {/* Right-side action: link mode = Plus, search mode = expand toggle */}
                     {mode === 'link' ? (
                       <button
-                        onClick={(e) => { e.stopPropagation(); onAdd(item.url, String(item.id)) }}
+                        onClick={(e) => { e.stopPropagation(); onAdd(item.url, item.id) }}
                         title="Link to current item"
                         className="flex-shrink-0 p-1 rounded text-th-tx-6 hover:text-accent hover:bg-th-bg-6 transition-all opacity-0 group-hover:opacity-100"
                       >
@@ -310,9 +318,9 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
                       ]).map(({ type, label, Icon }) => (
                         <button
                           key={type}
-                          disabled={creating === String(item.id) + type}
+                          disabled={creating === item.id + type}
                           onClick={async () => {
-                            setCreating(String(item.id) + type)
+                            setCreating(item.id + type)
                             try {
                               const title = item.title
                               let entity: { id: string } | null | undefined
@@ -331,7 +339,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
                           }}
                           className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] border border-th-bd-2 text-th-tx-3 hover:text-th-tx-1 hover:border-th-bd-3 transition-all disabled:opacity-40"
                         >
-                          {creating === String(item.id) + type
+                          {creating === item.id + type
                             ? <Loader size={10} className="animate-spin" />
                             : <Icon size={10} />
                           }
@@ -377,13 +385,13 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
             <span
               className="text-[10px] font-medium px-2 py-0.5 rounded-full"
               style={{
-                background: (STATE_COLORS[hoveredResult.state] || '#888') + '33',
-                color: STATE_COLORS[hoveredResult.state] || '#ccc',
+                background: stateColor(hoveredResult.state) + '33',
+                color: stateColor(hoveredResult.state),
               }}
             >
               {hoveredResult.state}
             </span>
-            <span className="text-[10px] text-th-tx-5 ml-auto">#{hoveredResult.id}</span>
+            <span className="text-[10px] text-th-tx-5 ml-auto">{displayKey(hoveredResult.provider, hoveredResult.id)}</span>
           </div>
 
           {/* Title */}
@@ -467,7 +475,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
           {/* Footer actions */}
           <div className="flex items-center border-t border-th-bd-2 bg-th-bg-3">
             <button
-              onClick={() => openTab({ entityType: 'work-item', entityId: String(hoveredResult.id), title: `#${hoveredResult.id}` })}
+              onClick={() => openTab({ entityType: 'work-item', entityId: hoveredResult.id, title: displayKey(hoveredResult.provider, hoveredResult.id) })}
               className="flex-1 text-center text-[11px] font-medium text-th-tx-2 hover:text-th-tx-1 hover:bg-th-bg-6 transition-all py-2"
             >
               Open in app
@@ -478,7 +486,7 @@ export default function WorkItemSearch({ onAdd, placeholder, mode = 'link' }: Pr
               className="flex items-center gap-1.5 text-[11px] font-medium text-th-tx-2 hover:text-th-tx-1 hover:bg-th-bg-6 transition-all py-2 px-3"
             >
               <ExternalLink size={11} />
-              Open in ADO
+              Open in {PROVIDER_LABELS[hoveredResult.provider]}
             </button>
           </div>
         </div>

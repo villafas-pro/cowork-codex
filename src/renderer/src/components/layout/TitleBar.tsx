@@ -1,10 +1,20 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Search, X, Minus, Square } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 
 export default function TitleBar(): React.JSX.Element {
   const { navIndex, navHistory, goBack, goForward, tabs, activeTabId, setActiveTab, closeTab, setSearchOpen, viewMode } =
     useAppStore()
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Keep the active tab visible when it changes (new tab opened, back/forward, search)
+  useEffect(() => {
+    if (!activeTabId) return
+    scrollRef.current
+      ?.querySelector<HTMLElement>(`[data-tab-id="${activeTabId}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeTabId, tabs.length])
 
   const canGoBack = navIndex > 0
   const canGoForward = navIndex < navHistory.length - 1
@@ -29,11 +39,24 @@ export default function TitleBar(): React.JSX.Element {
         </button>
       </div>
 
-      {/* Tabs — container stays draggable; only individual tabs are no-drag */}
-      <div className="flex items-center flex-1 overflow-x-auto h-full">
+      {/* Tabs. The scroll container must be no-drag: Electron's drag regions swallow wheel and
+          scrollbar events, which is why the tab bar couldn't scroll. A drag spacer after the
+          tabs keeps the window draggable. */}
+      <div
+        ref={scrollRef}
+        onWheel={(e) => {
+          // Mouse wheels scroll vertically; map that to horizontal tab scrolling
+          if (scrollRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            scrollRef.current.scrollLeft += e.deltaY
+          }
+        }}
+        className="titlebar-no-drag flex items-center flex-1 overflow-x-auto overflow-y-hidden h-full"
+        style={{ scrollbarWidth: 'none' }}
+      >
         {tabs.map((tab) => (
           <div
             key={tab.id}
+            data-tab-id={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`
               titlebar-no-drag flex items-center gap-2 px-3 h-full border-r border-th-bd-1 cursor-pointer
@@ -53,6 +76,7 @@ export default function TitleBar(): React.JSX.Element {
             </button>
           </div>
         ))}
+        <div className="titlebar-drag flex-1 h-full min-w-[24px]" />
       </div>
 
       {/* Search button */}

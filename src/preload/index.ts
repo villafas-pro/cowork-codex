@@ -19,6 +19,30 @@ const api = {
     getImages: () => ipcRenderer.invoke('notes:getImages')
   },
 
+  // Tags (entityType = 'note' | 'code' | 'flow')
+  tags: {
+    getAll: () => ipcRenderer.invoke('tags:getAll'),
+    create: (name: string, color?: string) => ipcRenderer.invoke('tags:create', name, color),
+    update: (id: string, data: { name?: string; color?: string }) =>
+      ipcRenderer.invoke('tags:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('tags:delete', id),
+    merge: (sourceId: string, targetId: string) => ipcRenderer.invoke('tags:merge', sourceId, targetId),
+    getAssignments: (entityType?: string) => ipcRenderer.invoke('tags:getAssignments', entityType),
+    assign: (entityType: string, entityId: string, tagId: string) =>
+      ipcRenderer.invoke('tags:assign', entityType, entityId, tagId),
+    unassign: (entityType: string, entityId: string, tagId: string) =>
+      ipcRenderer.invoke('tags:unassign', entityType, entityId, tagId),
+    getItems: (tagIds: string[], mode: 'and' | 'or', includeArchived: boolean) =>
+      ipcRenderer.invoke('tags:getItems', tagIds, mode, includeArchived)
+  },
+
+  // Archive
+  archive: {
+    set: (entityType: string, id: string, archived: boolean) =>
+      ipcRenderer.invoke('archive:set', entityType, id, archived),
+    archiveCompletedNotes: () => ipcRenderer.invoke('archive:archiveCompletedNotes')
+  },
+
   // Work Items
   workItems: {
     getAll: () => ipcRenderer.invoke('workItems:getAll'),
@@ -94,7 +118,8 @@ const api = {
 
   // Search
   search: {
-    global: (query: string) => ipcRenderer.invoke('search:global', query)
+    global: (query: string, includeArchived?: boolean) =>
+      ipcRenderer.invoke('search:global', query, includeArchived)
   },
 
   // Templates
@@ -105,15 +130,19 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('templates:delete', id)
   },
 
-  // Azure DevOps
-  ado: {
-    getConfig: () => ipcRenderer.invoke('ado:getConfig'),
-    setConfig: (config: object) => ipcRenderer.invoke('ado:setConfig', config),
-    testConnection: () => ipcRenderer.invoke('ado:testConnection'),
-    search: (filters: object) => ipcRenderer.invoke('ado:search', filters),
-    isConfigured: () => ipcRenderer.invoke('ado:isConfigured'),
-    fetchWorkItem: (adoId: number, force?: boolean) => ipcRenderer.invoke('ado:fetchWorkItem', adoId, force),
-    syncLinkedWorkItems: () => ipcRenderer.invoke('ado:syncLinkedWorkItems')
+  // Work item integrations (Azure DevOps, Jira)
+  integrations: {
+    getConnections: () => ipcRenderer.invoke('integrations:getConnections'),
+    saveConnection: (input: object) => ipcRenderer.invoke('integrations:saveConnection', input),
+    deleteConnection: (id: string) => ipcRenderer.invoke('integrations:deleteConnection', id),
+    testConnection: (id: string) => ipcRenderer.invoke('integrations:testConnection', id),
+    isConfigured: () => ipcRenderer.invoke('integrations:isConfigured'),
+    checkAll: () => ipcRenderer.invoke('integrations:checkAll'),
+    search: (filters: object) => ipcRenderer.invoke('integrations:search', filters),
+    fetchItem: (itemNumber: string, force?: boolean) =>
+      ipcRenderer.invoke('integrations:fetchItem', itemNumber, force),
+    syncLinked: () => ipcRenderer.invoke('integrations:syncLinked'),
+    parseRef: (ref: string) => ipcRenderer.invoke('integrations:parseRef', ref)
   },
 
   // Window controls (for custom title bar)

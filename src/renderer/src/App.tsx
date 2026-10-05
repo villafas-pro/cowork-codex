@@ -8,6 +8,7 @@ import Home from './pages/Home'
 import Notes from './pages/Notes'
 import Code from './pages/Code'
 import Flow from './pages/Flow'
+import Tags from './pages/Tags'
 import WorkItems from './pages/WorkItems'
 import Images from './pages/Images'
 import Settings from './pages/Settings'
@@ -44,6 +45,21 @@ declare global {
         getVersions: (noteId: string) => Promise<any[]>
         search: (query: string) => Promise<any[]>
         getImages: () => Promise<any[]>
+      }
+      tags: {
+        getAll: () => Promise<any[]>
+        create: (name: string, color?: string) => Promise<any>
+        update: (id: string, data: { name?: string; color?: string }) => Promise<any>
+        delete: (id: string) => Promise<any>
+        merge: (sourceId: string, targetId: string) => Promise<any>
+        getAssignments: (entityType?: string) => Promise<any[]>
+        assign: (entityType: string, entityId: string, tagId: string) => Promise<any>
+        unassign: (entityType: string, entityId: string, tagId: string) => Promise<any>
+        getItems: (tagIds: string[], mode: 'and' | 'or', includeArchived: boolean) => Promise<any[]>
+      }
+      archive: {
+        set: (entityType: string, id: string, archived: boolean) => Promise<{ archivedAt: number | null }>
+        archiveCompletedNotes: () => Promise<{ count: number }>
       }
       workItems: {
         getAll: () => Promise<any[]>
@@ -98,7 +114,7 @@ declare global {
         save: (content: string) => Promise<any>
       }
       search: {
-        global: (query: string) => Promise<any[]>
+        global: (query: string, includeArchived?: boolean) => Promise<any[]>
       }
       templates: {
         getAll: () => Promise<any[]>
@@ -110,32 +126,34 @@ declare global {
         maximize: () => void
         close: () => void
       }
-      ado: {
-        getConfig: () => Promise<any>
-        setConfig: (config: object) => Promise<any>
-        testConnection: () => Promise<any>
-        search: (filters: object) => Promise<any[]>
+      integrations: {
+        getConnections: () => Promise<import('./lib/workItemUtils').ConnectionInfo[]>
+        saveConnection: (input: object) => Promise<{ success: true; id: string } | { success: false; error: string }>
+        deleteConnection: (id: string) => Promise<any>
+        testConnection: (id: string) => Promise<{ success: boolean; error?: string; detail?: string }>
         isConfigured: () => Promise<boolean>
-        fetchWorkItem: (adoId: number, force?: boolean) => Promise<any>
-        syncLinkedWorkItems: () => Promise<void>
+        checkAll: () => Promise<{ configured: boolean; ok: boolean; failures: { id: string; name: string; error: string }[] }>
+        search: (filters: object) => Promise<import('./lib/workItemUtils').SearchResult[]>
+        fetchItem: (itemNumber: string, force?: boolean) => Promise<import('./lib/workItemUtils').CachedWorkItem | null>
+        syncLinked: () => Promise<void>
+        parseRef: (ref: string) => Promise<{ provider: 'ado' | 'jira'; itemNumber: string; container: string; url: string } | null>
       }
     }
   }
 }
 
 export default function App(): React.JSX.Element {
-  const { activeSection, searchOpen, setSearchOpen, setTheme, setEditorFontSize, viewMode, tabs, activeTabId, restoreTabs, setAdoStatus } = useAppStore()
+  const { activeSection, searchOpen, setSearchOpen, setTheme, setEditorFontSize, viewMode, tabs, activeTabId, restoreTabs, setIntegrationStatus } = useAppStore()
 
-  // Check ADO connection status
-  async function checkAdoConnection(): Promise<void> {
-    const configured = await window.api?.ado.isConfigured()
-    if (!configured) { setAdoStatus('unconfigured'); return }
-    setAdoStatus('checking')
+  // Check every work item connection (ADO and Jira)
+  async function checkIntegrations(): Promise<void> {
+    setIntegrationStatus('checking')
     try {
-      const result = await window.api?.ado.testConnection()
-      setAdoStatus(result?.success ? 'ok' : 'error')
+      const result = await window.api?.integrations.checkAll()
+      if (!result?.configured) setIntegrationStatus('unconfigured')
+      else setIntegrationStatus(result.ok ? 'ok' : 'error', result.failures)
     } catch {
-      setAdoStatus('error')
+      setIntegrationStatus('error')
     }
   }
 
@@ -148,9 +166,9 @@ export default function App(): React.JSX.Element {
       const fontSize = (await window.api?.settings.get('editorFontSize')) as import('./store/appStore').EditorFontSize | undefined
       if (fontSize) setEditorFontSize(fontSize)
 
-      // Check ADO connection and background sync
-      checkAdoConnection()
-      window.api?.ado.syncLinkedWorkItems().catch(() => {})
+      // Check connections, then refresh linked work items in the background
+      checkIntegrations()
+      window.api?.integrations.syncLinked().catch(() => {})
 
       const savedTabs = (await window.api?.tabs.getAll()) || []
       if (savedTabs.length > 0) {
@@ -167,9 +185,9 @@ export default function App(): React.JSX.Element {
     loadSettings()
   }, [])
 
-  // Re-check ADO connection every 5 minutes
+  // Re-check connections every 5 minutes
   useEffect(() => {
-    const interval = setInterval(checkAdoConnection, 5 * 60 * 1000)
+    const interval = setInterval(checkIntegrations, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
 
@@ -219,7 +237,7 @@ export default function App(): React.JSX.Element {
           return <FlowEditor key={activeTab.entityId} flowId={activeTab.entityId} />
         }
         if (activeTab.entityType === 'work-item') {
-          return <WorkItemViewer key={activeTab.entityId} adoId={activeTab.entityId} />
+          return <WorkItemViewer key={activeTab.entityId} itemNumber={activeTab.entityId} />
         }
       }
     }
@@ -230,6 +248,7 @@ export default function App(): React.JSX.Element {
       case 'notes': return <Notes />
       case 'code': return <Code />
       case 'flow': return <Flow />
+      case 'tags': return <Tags />
       case 'work-items': return <WorkItems />
       case 'images': return <Images />
       case 'settings': return <Settings />

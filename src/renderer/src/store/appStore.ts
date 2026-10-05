@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 
-export type Section = 'home' | 'notes' | 'code' | 'flow' | 'work-items' | 'images' | 'settings'
+export type Section = 'home' | 'notes' | 'code' | 'flow' | 'tags' | 'work-items' | 'images' | 'settings'
 export type EntityType = 'note' | 'code' | 'flow' | 'work-item'
 
 export interface Tab {
@@ -58,9 +58,13 @@ interface AppStore {
   searchOpen: boolean
   setSearchOpen: (open: boolean) => void
 
-  // ADO connection status
-  adoStatus: 'ok' | 'error' | 'unconfigured' | 'checking'
-  setAdoStatus: (status: 'ok' | 'error' | 'unconfigured' | 'checking') => void
+  // Work item integration (ADO/Jira) connection status. 'error' if any connection fails.
+  integrationStatus: 'ok' | 'error' | 'unconfigured' | 'checking'
+  integrationFailures: { id: string; name: string; error: string }[]
+  setIntegrationStatus: (
+    status: 'ok' | 'error' | 'unconfigured' | 'checking',
+    failures?: { id: string; name: string; error: string }[]
+  ) => void
 
   // Confirm dialog
   confirmDialog: { message: string; resolve: (v: boolean) => void } | null
@@ -100,7 +104,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const { tabs, activeTabId } = get()
     const existing = tabs.find((t) => t.entityType === tab.entityType && t.entityId === tab.entityId)
     if (existing) {
-      if (existing.id !== activeTabId) {
+      // Record a history entry unless we're already looking at this exact tab. Checking viewMode
+      // too matters: a tab can be "active" in the background while a list page is showing.
+      if (existing.id !== activeTabId || get().viewMode !== 'tab') {
         get().navigate({ entityType: tab.entityType, entityId: tab.entityId })
       }
       set({ activeTabId: existing.id, viewMode: 'tab' })
@@ -165,6 +171,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   restoreTabs: (tabs, activeTabId) => {
     if (tabs.length === 0) return
     set({ tabs, activeTabId, viewMode: activeTabId ? 'tab' : 'section' })
+    // Seed history with the restored page so "Back" can return to it. Without this, the first
+    // thing the user opens becomes history entry #0 and Back has nowhere to go.
+    const active = tabs.find((t) => t.id === activeTabId)
+    if (active && get().navHistory.length === 0) {
+      set({ navHistory: [{ entityType: active.entityType, entityId: active.entityId }], navIndex: 0 })
+    }
   },
 
   navHistory: [],
@@ -240,8 +252,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   searchOpen: false,
   setSearchOpen: (open) => set({ searchOpen: open }),
 
-  adoStatus: 'unconfigured',
-  setAdoStatus: (status) => set({ adoStatus: status }),
+  integrationStatus: 'unconfigured',
+  integrationFailures: [],
+  setIntegrationStatus: (status, failures = []) =>
+    set({ integrationStatus: status, integrationFailures: failures }),
 
   confirmDialog: null,
   showConfirm: (message) =>

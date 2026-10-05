@@ -44,6 +44,21 @@ export function initDb(customPath?: string): void {
     fs.mkdirSync(dbDir, { recursive: true })
   }
 
+  // One-time safety copy before the tags/archive/integrations migrations first touch an existing
+  // database. Left in place afterwards; delete it once you're happy everything works.
+  try {
+    const marker = path.join(dbDir, 'cowork-codex-before-tags-and-jira.db')
+    if (fs.existsSync(dbPath) && fs.statSync(dbPath).size > 0 && !fs.existsSync(marker)) {
+      fs.copyFileSync(dbPath, marker)
+      for (const ext of ['-wal', '-shm']) {
+        if (fs.existsSync(dbPath + ext)) fs.copyFileSync(dbPath + ext, marker + ext)
+      }
+      console.log('Pre-migration copy saved to:', marker)
+    }
+  } catch (e) {
+    console.warn('Could not make pre-migration copy:', e)
+  }
+
   db = new Database(dbPath)
   initializeSchema(db)
 
