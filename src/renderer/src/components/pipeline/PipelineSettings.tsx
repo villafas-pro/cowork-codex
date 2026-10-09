@@ -170,11 +170,11 @@ export default function PipelineSettings(): React.JSX.Element {
               <p className="text-xs text-amber-400">Claude Code's settings file could not be read as JSON, so hooks cannot be installed until it is fixed.</p>
             )}
             <p className="text-[11px] text-th-tx-5 break-words [overflow-wrap:anywhere]">
-              Open session button:{' '}
+              Hooks work on any version. Open session button:{' '}
               {hooks?.claude.found
                 ? hooks.claude.canOpenInDesktop
                   ? `available (Claude Code ${hooks.claude.version})`
-                  : `needs Claude Code 2.1.285 or newer (found ${hooks.claude.version ?? 'unknown'})`
+                  : `hidden until Claude Code is 2.1.285 or newer (found ${hooks.claude.version ?? 'unknown'})`
                 : 'needs the claude command on the PATH'}
             </p>
           </div>
