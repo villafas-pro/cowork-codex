@@ -40,7 +40,7 @@ export default function ConfirmDialog(): React.JSX.Element | null {
               confirmDialog.danger === false ? 'bg-accent hover:bg-accent-hover !text-black' : 'bg-red-600 hover:bg-red-500'
             }`}
           >
-            {confirmDialog.confirmLabel ?? 'Delete'
+            {confirmDialog.confirmLabel ?? 'Delete'}
           </button>
         </div>
       </div>
