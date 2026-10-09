@@ -174,3 +174,9 @@ npm run build     # production build
 
 ## Pushing Changes
 The remote is `https://github.com/villafas-pro/cowork-codex.git`. Sebastian handles the `git push` manually since the sandbox doesn't have GitHub credentials.
+
+## Pipeline Inbox
+The "Assigned to you" dropdown was replaced by an Inbox column at the left of the Pipeline board
+(`components/pipeline/InboxColumn.tsx`, `main/pipeline/inbox.ts`). It lists Jira tickets assigned to you
+that are not tracked or hidden (cached 60s). Drag a card onto a category, or press Track, to add it.
+Hidden tickets live in `pipeline_inbox_hidden`; "Show N hidden" restores them. Toggle persisted in localStorage `pipeline:inbox`.

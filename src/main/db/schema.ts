@@ -116,6 +116,12 @@ function migratePipeline(db: Database.Database): void {
       UNIQUE (source, ext_id)
     );
     CREATE INDEX IF NOT EXISTS idx_pipeline_events_item ON pipeline_events(item_key, at);
+
+    -- Tickets you chose to hide from the Inbox column (still assigned to you, just not wanted there)
+    CREATE TABLE IF NOT EXISTS pipeline_inbox_hidden (
+      item_key TEXT PRIMARY KEY,
+      hidden_at INTEGER NOT NULL
+    );
   `)
 
   // What we last told the user about each ticket, so alerts fire on changes only

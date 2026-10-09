@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, RefreshCw, Columns3, Rows3, Inbox, X } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
-import Popover from '../components/Popover'
 import StageStrip from '../components/pipeline/StageStrip'
 import PipelineCard from '../components/pipeline/PipelineCard'
 import CategoryHeader from '../components/pipeline/CategoryHeader'
+import InboxColumn from '../components/pipeline/InboxColumn'
 import {
   STAGE_META, STAGE_ORDER, timeAgo,
-  type PipelineBoard, type PipelineItem, type Stage
+  type InboxItem, type PipelineBoard, type PipelineInbox, type PipelineItem, type Stage
 } from '../lib/pipelineUi'
 
 type View = 'category' | 'stage'
@@ -35,10 +35,14 @@ export default function Pipeline(): React.JSX.Element {
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
-  const [trayAnchor, setTrayAnchor] = useState<DOMRect | null>(null)
-  const [tray, setTray] = useState<{ key: string; title: string; state: string; url: string }[] | null>(null)
-  const [trayError, setTrayError] = useState<string | null>(null)
-  const trayBtn = useRef<HTMLButtonElement>(null)
+  const [inbox, setInbox] = useState<PipelineInbox | null>(null)
+  const [inboxError, setInboxError] = useState<string | null>(null)
+  const [inboxLoading, setInboxLoading] = useState(false)
+  const [showInbox, setShowInbox] = useState<boolean>(() => {
+    try { return localStorage.getItem('pipeline:inbox') !== 'hidden' } catch { return true }
+  })
+  // Where the card being dragged came from: a board column or the Inbox
+  const [dragFrom, setDragFrom] = useState<'board' | 'inbox'>('board')
 
   const [newCat, setNewCat] = useState<string | null>(null)
   const [canOpenSession, setCanOpenSession] = useState(false)
@@ -56,12 +60,24 @@ export default function Pipeline(): React.JSX.Element {
     if (b) setBoard(b)
   }, [])
 
+  const loadInbox = useCallback(async (force = false) => {
+    setInboxLoading(true)
+    try {
+      setInbox((await window.api?.pipeline.inbox(force)) ?? null)
+      setInboxError(null)
+    } catch (e) {
+      setInboxError(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : 'Could not load your tickets')
+    } finally {
+      setInboxLoading(false)
+    }
+  }, [])
+
   const refresh = useCallback(async () => {
     setSyncing(true)
     setSyncNote(null)
     try {
       const r = await window.api?.pipeline.sync()
-      await load()
+      await Promise.all([load(), loadInbox(true)])
       setLastSynced(Date.now())
       const problems: string[] = []
       if (r?.errors?.length) problems.push(r.errors[0])
@@ -73,20 +89,24 @@ export default function Pipeline(): React.JSX.Element {
     } finally {
       setSyncing(false)
     }
-  }, [load])
+  }, [load, loadInbox])
 
   useEffect(() => {
     load()
     refresh()
-    const off = window.api?.pipeline.onUpdated(() => { load(); setLastSynced(Date.now()) })
+    const off = window.api?.pipeline.onUpdated(() => { load(); loadInbox(); setLastSynced(Date.now()) })
     // Local read only: keeps "time in stage" and live-session badges current
     const timer = setInterval(load, 60_000)
     return () => { off?.(); clearInterval(timer) }
-  }, [load, refresh])
+  }, [load, loadInbox, refresh])
 
   useEffect(() => {
     try { localStorage.setItem('pipeline:view', view) } catch { /* ignore */ }
   }, [view])
+
+  useEffect(() => {
+    try { localStorage.setItem('pipeline:inbox', showInbox ? 'shown' : 'hidden') } catch { /* ignore */ }
+  }, [showInbox])
 
   const categories = board?.categories ?? []
   const allItems = board?.items ?? []
@@ -121,16 +141,11 @@ export default function Pipeline(): React.JSX.Element {
     }
   }
 
-  async function openTray(): Promise<void> {
-    if (trayAnchor) { setTrayAnchor(null); return }
-    setTrayAnchor(trayBtn.current?.getBoundingClientRect() ?? null)
-    setTray(null)
-    setTrayError(null)
-    try {
-      setTray((await window.api?.pipeline.suggestions()) ?? [])
-    } catch (e) {
-      setTrayError(e instanceof Error ? e.message : 'Could not load your tickets')
-    }
+  /** Track an Inbox ticket. With no category it goes to the default one; with an index it lands at that slot. */
+  async function trackFromInbox(key: string, categoryId?: string, index?: number): Promise<void> {
+    if (!await addTicket(key, categoryId)) return
+    if (categoryId && index !== undefined) await window.api?.pipeline.move(key, categoryId, index)
+    await Promise.all([load(), loadInbox()])
   }
 
   function openTicket(item: PipelineItem): void {
@@ -181,9 +196,15 @@ export default function Pipeline(): React.JSX.Element {
   function onDropColumn(categoryId: string, visible: PipelineItem[]): void {
     const key = dragKey
     const target = drop
+    const fromInbox = dragFrom === 'inbox'
     setDragKey(null)
     setDrop(null)
+    setDragFrom('board')
     if (!key || !target || target.col !== categoryId) return
+    if (fromInbox) {
+      trackFromInbox(key, categoryId, stageFilter ? Number.MAX_SAFE_INTEGER : target.index)
+      return
+    }
     // With a stage filter on, positions among hidden cards are unknown, so the card goes to the end
     let index = stageFilter ? Number.MAX_SAFE_INTEGER : target.index
     if (!stageFilter) {
@@ -221,9 +242,10 @@ export default function Pipeline(): React.JSX.Element {
         onDragStart={(e) => {
           e.dataTransfer.effectAllowed = 'move'
           e.dataTransfer.setData('text/plain', item.item_key)
+          setDragFrom('board')
           setDragKey(item.item_key)
         }}
-        onDragEnd={() => { setDragKey(null); setDrop(null) }}
+        onDragEnd={() => { setDragKey(null); setDrop(null); setDragFrom('board') }}
         onOpenTicket={() => openTicket(item)}
         onOpenLink={(url) => window.api?.shell.openExternal(url)}
         onOpenEntity={(entityType, entityId, title) =>
@@ -278,13 +300,14 @@ export default function Pipeline(): React.JSX.Element {
         </form>
 
         <button
-          ref={trayBtn}
-          onClick={openTray}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-th-bd-2 text-xs text-th-tx-3 hover:text-th-tx-1 hover:bg-th-bg-5"
+          onClick={() => setShowInbox((v) => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-th-bd-2 text-xs hover:bg-th-bg-5 ${
+            showInbox ? 'bg-th-bg-6 text-accent' : 'text-th-tx-3 hover:text-th-tx-1'
+          }`}
           title="Tickets assigned to you that are not on the board"
         >
           <Inbox size={12} />
-          Assigned to you
+          Inbox{inbox ? ` ${inbox.items.length}` : ''}
         </button>
 
         <div className="flex rounded-lg border border-th-bd-2 overflow-hidden">
@@ -328,11 +351,31 @@ export default function Pipeline(): React.JSX.Element {
       <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-4 pb-4">
         {!board ? (
           <p className="text-center text-th-tx-5 text-xs py-8">Loading...</p>
-        ) : allItems.length === 0 && view === 'stage' ? (
-          <EmptyHint />
         ) : (
           <div className="flex gap-3 h-full">
-            {view === 'category'
+            {showInbox && (
+              <InboxColumn
+                inbox={inbox}
+                error={inboxError}
+                loading={inboxLoading}
+                draggingKey={dragFrom === 'inbox' ? dragKey : null}
+                onDragStart={(e, key) => {
+                  e.dataTransfer.effectAllowed = 'move'
+                  e.dataTransfer.setData('text/plain', key)
+                  setDragFrom('inbox')
+                  setDragKey(key)
+                }}
+                onDragEnd={() => { setDragKey(null); setDrop(null); setDragFrom('board') }}
+                onTrack={(key) => trackFromInbox(key)}
+                onHide={async (key) => { await window.api?.pipeline.inboxHide(key); await loadInbox() }}
+                onRestore={async () => { await window.api?.pipeline.inboxRestore(); await loadInbox(true) }}
+                onOpenTicket={(i: InboxItem) => openTab({ entityType: 'work-item', entityId: i.key, title: i.title || i.key })}
+                onOpenLink={(url) => window.api?.shell.openExternal(url)}
+                onClose={() => setShowInbox(false)}
+              />
+            )}
+            {allItems.length === 0 && view === 'stage' && <div className="flex-1"><EmptyHint /></div>}
+            {!(allItems.length === 0 && view === 'stage') && view === 'category'
               ? categories.map((cat, ci) => {
                   const col = shown.filter((i) => i.category_id === cat.id).sort((a, b) => a.position - b.position)
                   const total = allItems.filter((i) => i.category_id === cat.id).length
@@ -378,6 +421,7 @@ export default function Pipeline(): React.JSX.Element {
                     </section>
                   )
                 })
+              : (allItems.length === 0 && view === 'stage') ? null
               : STAGE_ORDER.map((stage) => {
                   const col = shown
                     .filter((i) => i.stage === stage)
@@ -433,34 +477,6 @@ export default function Pipeline(): React.JSX.Element {
           </div>
         )}
       </div>
-
-      {/* Assigned tray */}
-      {trayAnchor && (
-        <Popover anchor={trayAnchor} onClose={() => setTrayAnchor(null)} width={380} estimatedHeight={360} align="right">
-          <div className="p-2 max-h-[340px] overflow-y-auto">
-            <p className="px-2 pb-1.5 text-[11px] uppercase tracking-wide text-th-tx-5">Assigned to you, not on the board</p>
-            {trayError && <p className="px-2 py-3 text-xs text-red-400">{trayError}</p>}
-            {!trayError && tray === null && <p className="px-2 py-3 text-xs text-th-tx-5">Loading...</p>}
-            {tray?.length === 0 && <p className="px-2 py-3 text-xs text-th-tx-5">Everything assigned to you is already tracked.</p>}
-            {tray?.map((t) => (
-              <div key={t.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-th-bg-5">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-th-tx-1 truncate">{t.title}</p>
-                  <p className="text-[11px] text-th-tx-5"><span className="font-mono">{t.key}</span> · {t.state}</p>
-                </div>
-                <button
-                  onClick={async () => {
-                    if (await addTicket(t.key)) setTray((cur) => cur?.filter((x) => x.key !== t.key) ?? null)
-                  }}
-                  className="flex-shrink-0 px-2 py-1 rounded-md border border-th-bd-2 text-[11px] text-th-tx-2 hover:text-th-tx-1 hover:bg-th-bg-5"
-                >
-                  Track
-                </button>
-              </div>
-            ))}
-          </div>
-        </Popover>
-      )}
     </div>
   )
 }
@@ -486,7 +502,7 @@ function ViewButton({
 function EmptyHint({ compact }: { compact?: boolean }): React.JSX.Element {
   return (
     <p className={`text-xs text-th-tx-5 ${compact ? 'mt-3' : 'text-center py-10'}`}>
-      Nothing tracked yet. Add a ticket by key, or open "Assigned to you". Tickets Rivet starts on are added automatically.
+      Nothing tracked yet. Add a ticket by key, or drag one from the Inbox. Tickets Rivet starts on are added automatically.
     </p>
   )
 }

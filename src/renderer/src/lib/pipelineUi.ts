@@ -72,6 +72,21 @@ export interface PipelineItem {
   links: { entity_type: string; entity_id: string; title: string }[]
 }
 
+export interface InboxItem {
+  key: string
+  title: string
+  type: string
+  state: string
+  url: string
+  project: string
+  sprint: string
+}
+
+export interface PipelineInbox {
+  items: InboxItem[]
+  hiddenCount: number
+}
+
 export interface PipelineBoard {
   categories: PipelineCategory[]
   items: PipelineItem[]

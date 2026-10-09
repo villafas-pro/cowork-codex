@@ -3,9 +3,9 @@ import { mkdirSync, watch } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import {
-  addItem, assignedSuggestions, autoAddRivetTickets, createCategory, deleteCategory, detectAlerts, getBoard,
-  githubToken, githubTokenStatus, ingestSessionEvents, listCategories, moveItem, removeItem, reorderCategories,
-  rivetAuthor, setGithubToken, syncAllItems, updateCategory, type PipelineAlert
+  addItem, autoAddRivetTickets, createCategory, deleteCategory, detectAlerts, getBoard, getInbox,
+  githubToken, githubTokenStatus, hideFromInbox, ingestSessionEvents, listCategories, moveItem, removeItem,
+  reorderCategories, restoreInbox, rivetAuthor, setGithubToken, syncAllItems, updateCategory, type PipelineAlert
 } from '../pipeline'
 import { testToken } from '../pipeline/github'
 import {
@@ -126,7 +126,15 @@ export function registerPipelineHandlers(): void {
   ipcMain.handle('pipeline:move', (_, key: string, categoryId: string, index: number) =>
     moveItem(String(key), String(categoryId), Number(index))
   )
-  ipcMain.handle('pipeline:suggestions', () => assignedSuggestions())
+  ipcMain.handle('pipeline:inbox', (_, force?: boolean) => getInbox(!!force))
+  ipcMain.handle('pipeline:inboxHide', (_, key: string) => {
+    hideFromInbox(String(key))
+    return { success: true }
+  })
+  ipcMain.handle('pipeline:inboxRestore', () => {
+    restoreInbox()
+    return { success: true }
+  })
 
   ipcMain.handle('pipeline:getCategories', () => listCategories())
   ipcMain.handle('pipeline:createCategory', (_, name: string, color?: string) => createCategory(String(name), color))

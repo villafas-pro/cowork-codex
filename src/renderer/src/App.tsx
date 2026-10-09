@@ -145,7 +145,9 @@ declare global {
         add: (ref: string, categoryId?: string) => Promise<{ success: true; key: string } | { success: false; error: string }>
         remove: (key: string) => Promise<{ success: boolean }>
         move: (key: string, categoryId: string, index: number) => Promise<boolean>
-        suggestions: () => Promise<{ key: string; title: string; state: string; url: string }[]>
+        inbox: (force?: boolean) => Promise<import('./lib/pipelineUi').PipelineInbox>
+        inboxHide: (key: string) => Promise<{ success: boolean }>
+        inboxRestore: () => Promise<{ success: boolean }>
         getCategories: () => Promise<import('./lib/pipelineUi').PipelineCategory[]>
         createCategory: (name: string, color?: string) => Promise<import('./lib/pipelineUi').PipelineCategory | null>
         updateCategory: (id: string, patch: { name?: string; color?: string; muted?: boolean }) => Promise<boolean>

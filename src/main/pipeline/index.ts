@@ -2,7 +2,9 @@ import { v4 as uuidv4 } from 'uuid'
 import { readFileSync, readdirSync, rmSync } from 'fs'
 import { join } from 'path'
 import { getDb } from '../db'
-import { connectionForItem, fetchItem, listConnections, parseRef } from '../integrations'
+import { connectionForItem, fetchItem, listConnections, parseRef, searchAll } from '../integrations'
+import type { SearchResult } from '../integrations/types'
+import { selectInbox } from './inbox'
 import { fetchRecentComments, jqlQuote, searchKeysByJql } from '../integrations/jiraProvider'
 import { decryptSecret, encryptSecret } from '../integrations/secrets'
 import { classifyRivetComment, htmlToText, isRivetAuthor } from './rivet'
@@ -329,24 +331,54 @@ export async function autoAddRivetTickets(): Promise<string[]> {
   return added
 }
 
-/** Tickets assigned to you that are not on the board, for the "add" tray. */
-export async function assignedSuggestions(): Promise<{ key: string; title: string; state: string; url: string }[]> {
-  const conn = listConnections().find((c) => c.provider === 'jira' && c.secret)
-  if (!conn) return []
-  const keys = await searchKeysByJql(conn, 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC', 50)
+// ─── Inbox ────────────────────────────────────────────────────────────────────
+
+export interface InboxItem {
+  key: string
+  title: string
+  type: string
+  state: string
+  url: string
+  project: string
+  sprint: string
+}
+
+const INBOX_CACHE_MS = 60 * 1000
+let inboxCache: { at: number; found: SearchResult[] } | null = null
+
+/**
+ * Tickets assigned to you that are not on the board and not hidden. One search, no per-ticket
+ * lookups. Cached for a minute so repeated refreshes do not hammer Jira; `force` skips the cache.
+ */
+export async function getInbox(force = false): Promise<{ items: InboxItem[]; hiddenCount: number }> {
   const db = getDb()
-  const fresh = keys.filter((k) => !db.prepare('SELECT 1 FROM pipeline_items WHERE item_key = ? AND dismissed_at IS NULL').get(k))
-  const out: { key: string; title: string; state: string; url: string }[] = []
-  for (const key of fresh.slice(0, 30)) {
-    const row = db.prepare('SELECT title, state, ado_url FROM cached_work_items WHERE id = ?').get(key) as
-      | { title: string; state: string; ado_url: string } | undefined
-    if (row) out.push({ key, title: row.title, state: row.state, url: row.ado_url })
-    else {
-      const item = await fetchItem(key)
-      if (item) out.push({ key, title: item.title, state: item.state, url: item.url })
+  const hidden = new Set((db.prepare('SELECT item_key FROM pipeline_inbox_hidden').all() as { item_key: string }[]).map((r) => r.item_key))
+  const tracked = new Set(
+    (db.prepare('SELECT item_key FROM pipeline_items WHERE dismissed_at IS NULL').all() as { item_key: string }[]).map((r) => r.item_key)
+  )
+
+  if (force || !inboxCache || Date.now() - inboxCache.at > INBOX_CACHE_MS) {
+    inboxCache = {
+      at: Date.now(),
+      found: await searchAll({ search: '', assignedToMe: true, type: '', state: '', excludeDone: true })
     }
   }
-  return out
+
+  const items: InboxItem[] = selectInbox(inboxCache.found, tracked, hidden).map((r) => ({
+    key: r.id, title: r.title, type: r.type, state: r.state, url: r.url, project: r.container, sprint: r.iterationPath
+  }))
+  const hiddenCount = new Set(
+    inboxCache.found.filter((r) => r.provider === 'jira' && hidden.has(r.id) && !tracked.has(r.id)).map((r) => r.id)
+  ).size
+  return { items, hiddenCount }
+}
+
+export function hideFromInbox(key: string): void {
+  getDb().prepare('INSERT OR REPLACE INTO pipeline_inbox_hidden (item_key, hidden_at) VALUES (?, ?)').run(key, Date.now())
+}
+
+export function restoreInbox(): void {
+  getDb().prepare('DELETE FROM pipeline_inbox_hidden').run()
 }
 
 // ─── Claude Code sessions ─────────────────────────────────────────────────────
