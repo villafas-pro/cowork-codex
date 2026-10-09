@@ -76,6 +76,60 @@ function migrateWorkItemIntegrations(db: Database.Database): void {
   }
 }
 
+/**
+ * Pipeline dashboard: tickets you are tracking from Claude to Jira to Rivet to GitHub.
+ *  - pipeline_categories: your own groupings (Priority, In flight, Parked, ...). Stage is automatic,
+ *    category is manual.
+ *  - pipeline_items: one row per tracked ticket (Jira key)
+ *  - pipeline_events: what we saw happen (Rivet comments, later GitHub and Claude Code session events).
+ *    (source, ext_id) is unique so re-reading the same comment never double counts.
+ * Safe to run on every startup.
+ */
+function migratePipeline(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pipeline_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT 'gray',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      muted INTEGER NOT NULL DEFAULT 0,       -- 1 = no notifications or stale warnings
+      is_default INTEGER NOT NULL DEFAULT 0   -- new tickets land here; cannot be deleted
+    );
+
+    CREATE TABLE IF NOT EXISTS pipeline_items (
+      item_key TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      position REAL NOT NULL DEFAULT 0,
+      added_at INTEGER NOT NULL,
+      added_via TEXT NOT NULL DEFAULT 'manual', -- 'manual' | 'rivet' | 'session'
+      dismissed_at INTEGER                      -- removed from the board; not re-added automatically
+    );
+
+    CREATE TABLE IF NOT EXISTS pipeline_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_key TEXT NOT NULL,
+      source TEXT NOT NULL,                     -- 'rivet' | 'github' | 'claude'
+      type TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      data TEXT NOT NULL DEFAULT '{}',
+      ext_id TEXT,
+      UNIQUE (source, ext_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipeline_events_item ON pipeline_events(item_key, at);
+  `)
+
+  const seeded = db.prepare("SELECT value FROM settings WHERE key = 'pipeline_seeded'").get()
+  if (!seeded) {
+    const insert = db.prepare(
+      'INSERT OR IGNORE INTO pipeline_categories (id, name, color, sort_order, muted, is_default) VALUES (?, ?, ?, ?, ?, ?)'
+    )
+    insert.run('priority', 'Priority', 'red', 0, 0, 0)
+    insert.run('inflight', 'In flight', 'blue', 1, 0, 1)
+    insert.run('parked', 'Parked', 'gray', 2, 1, 0)
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('pipeline_seeded', '1')").run()
+  }
+}
+
 export function initializeSchema(db: Database.Database): void {
   db.exec(`
     PRAGMA journal_mode = WAL;
@@ -273,6 +327,7 @@ export function initializeSchema(db: Database.Database): void {
   }
 
   migrateWorkItemIntegrations(db)
+  migratePipeline(db)
 
   // Remove tag assignments automatically when the tagged item is deleted.
   // (Created after the main block because code_blocks and flows are defined there.)

@@ -62,6 +62,51 @@ async function errorFor(res: Response): Promise<string> {
   return `HTTP ${res.status}${detail ? `: ${detail}` : ''}`
 }
 
+export interface JiraComment {
+  id: string
+  author: string
+  /** ms since epoch */
+  created: number
+  /** Rendered HTML of the comment body */
+  html: string
+}
+
+/**
+ * Newest comments first. Tickets imported from ADO can carry dozens of history comments, so only
+ * the most recent page is read; Rivet's comments are always recent.
+ */
+export async function fetchRecentComments(conn: Connection, key: string, max = 50): Promise<JiraComment[]> {
+  const res = await fetch(
+    `${conn.base_url}/rest/api/3/issue/${encodeURIComponent(key)}/comment?orderBy=-created&maxResults=${max}&expand=renderedBody`,
+    { headers: headers(conn) }
+  )
+  if (!res.ok) throw new Error(`Jira comments for ${key} failed: ${await errorFor(res)}`)
+  const data = (await res.json()) as { comments?: any[] }
+  return (data.comments ?? []).map((c): JiraComment => ({
+    id: String(c.id),
+    author: c.author?.displayName ?? '',
+    created: Date.parse(c.created) || 0,
+    html: typeof c.renderedBody === 'string' ? c.renderedBody : ''
+  }))
+}
+
+/** Issue keys matching a JQL query (newest first as the query orders them). */
+export async function searchKeysByJql(conn: Connection, jql: string, max = 50): Promise<string[]> {
+  const res = await fetch(`${conn.base_url}/rest/api/3/search/jql`, {
+    method: 'POST',
+    headers: headers(conn),
+    body: JSON.stringify({ jql, maxResults: max, fields: ['summary'] })
+  })
+  if (!res.ok) throw new Error(`Jira search failed: ${await errorFor(res)}`)
+  const data = (await res.json()) as { issues?: { key: string }[] }
+  return (data.issues ?? []).map((i) => i.key)
+}
+
+/** Quote a value for use inside JQL. */
+export function jqlQuote(s: string): string {
+  return jqlString(s)
+}
+
 export const jiraProvider: Provider = {
   id: 'jira',
 

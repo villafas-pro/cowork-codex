@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 
-export type Section = 'home' | 'notes' | 'code' | 'flow' | 'tags' | 'work-items' | 'images' | 'settings'
+export type Section = 'home' | 'pipeline' | 'notes' | 'code' | 'flow' | 'tags' | 'work-items' | 'images' | 'settings'
 export type EntityType = 'note' | 'code' | 'flow' | 'work-item'
 
 export interface Tab {

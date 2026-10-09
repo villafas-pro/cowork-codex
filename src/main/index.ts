@@ -9,6 +9,7 @@ import { registerCodeBlockHandlers } from './ipc/codeBlocks'
 import { registerFlowHandlers } from './ipc/flows'
 import { registerAppHandlers } from './ipc/app'
 import { registerIntegrationHandlers } from './ipc/integrations'
+import { registerPipelineHandlers } from './ipc/pipeline'
 import { migrateLegacyAdoSettings } from './integrations'
 
 let mainWindow: BrowserWindow | null = null
@@ -222,6 +223,7 @@ if (!gotLock) {
     registerFlowHandlers()
     registerAppHandlers()
     registerIntegrationHandlers()
+    registerPipelineHandlers()
 
     createWindow()
     createTray()

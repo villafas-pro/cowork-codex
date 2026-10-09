@@ -191,7 +191,7 @@ export function parseRef(ref: string): ParsedRef | null {
   return null
 }
 
-function connectionForItem(itemNumber: string, provider: ProviderId): Connection | null {
+export function connectionForItem(itemNumber: string, provider: ProviderId): Connection | null {
   const db = getDb()
   const conns = listConnections().filter((c) => c.provider === provider)
   if (conns.length === 0) return null

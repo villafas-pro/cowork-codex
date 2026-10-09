@@ -9,6 +9,7 @@ import Notes from './pages/Notes'
 import Code from './pages/Code'
 import Flow from './pages/Flow'
 import Tags from './pages/Tags'
+import Pipeline from './pages/Pipeline'
 import WorkItems from './pages/WorkItems'
 import Images from './pages/Images'
 import Settings from './pages/Settings'
@@ -138,6 +139,20 @@ declare global {
         syncLinked: () => Promise<void>
         parseRef: (ref: string) => Promise<{ provider: 'ado' | 'jira'; itemNumber: string; container: string; url: string } | null>
       }
+      pipeline: {
+        getBoard: () => Promise<import('./lib/pipelineUi').PipelineBoard>
+        sync: () => Promise<import('./lib/pipelineUi').PipelineSyncResult>
+        add: (ref: string, categoryId?: string) => Promise<{ success: true; key: string } | { success: false; error: string }>
+        remove: (key: string) => Promise<{ success: boolean }>
+        move: (key: string, categoryId: string, index: number) => Promise<boolean>
+        suggestions: () => Promise<{ key: string; title: string; state: string; url: string }[]>
+        getCategories: () => Promise<import('./lib/pipelineUi').PipelineCategory[]>
+        createCategory: (name: string, color?: string) => Promise<import('./lib/pipelineUi').PipelineCategory | null>
+        updateCategory: (id: string, patch: { name?: string; color?: string; muted?: boolean }) => Promise<boolean>
+        deleteCategory: (id: string) => Promise<boolean>
+        reorderCategories: (ids: string[]) => Promise<{ success: boolean }>
+        onUpdated: (cb: () => void) => () => void
+      }
     }
   }
 }
@@ -245,6 +260,7 @@ export default function App(): React.JSX.Element {
     // Otherwise show section view
     switch (activeSection) {
       case 'home': return <Home />
+      case 'pipeline': return <Pipeline />
       case 'notes': return <Notes />
       case 'code': return <Code />
       case 'flow': return <Flow />

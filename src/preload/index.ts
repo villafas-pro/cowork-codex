@@ -145,6 +145,27 @@ const api = {
     parseRef: (ref: string) => ipcRenderer.invoke('integrations:parseRef', ref)
   },
 
+  // Pipeline dashboard (Claude, Jira, Rivet, GitHub)
+  pipeline: {
+    getBoard: () => ipcRenderer.invoke('pipeline:getBoard'),
+    sync: () => ipcRenderer.invoke('pipeline:sync'),
+    add: (ref: string, categoryId?: string) => ipcRenderer.invoke('pipeline:add', ref, categoryId),
+    remove: (key: string) => ipcRenderer.invoke('pipeline:remove', key),
+    move: (key: string, categoryId: string, index: number) => ipcRenderer.invoke('pipeline:move', key, categoryId, index),
+    suggestions: () => ipcRenderer.invoke('pipeline:suggestions'),
+    getCategories: () => ipcRenderer.invoke('pipeline:getCategories'),
+    createCategory: (name: string, color?: string) => ipcRenderer.invoke('pipeline:createCategory', name, color),
+    updateCategory: (id: string, patch: object) => ipcRenderer.invoke('pipeline:updateCategory', id, patch),
+    deleteCategory: (id: string) => ipcRenderer.invoke('pipeline:deleteCategory', id),
+    reorderCategories: (ids: string[]) => ipcRenderer.invoke('pipeline:reorderCategories', ids),
+    // Fires when a background refresh finishes. Returns an unsubscribe function.
+    onUpdated: (cb: () => void) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('pipeline:updated', handler)
+      return () => ipcRenderer.removeListener('pipeline:updated', handler)
+    }
+  },
+
   // Window controls (for custom title bar)
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

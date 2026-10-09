@@ -1,9 +1,10 @@
 import React from 'react'
-import { Home, FileText, Code2, GitBranch, Tag, CheckSquare, Image, Settings, Sun, Moon, AlertTriangle } from 'lucide-react'
+import { Home, LayoutDashboard, FileText, Code2, GitBranch, Tag, CheckSquare, Image, Settings, Sun, Moon, AlertTriangle } from 'lucide-react'
 import { useAppStore, type Section } from '../../store/appStore'
 
 const navItems: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'home', label: 'Home', icon: <Home size={18} /> },
+  { id: 'pipeline', label: 'Pipeline', icon: <LayoutDashboard size={18} /> },
   { id: 'notes', label: 'Notes', icon: <FileText size={18} /> },
   { id: 'code', label: 'Code', icon: <Code2 size={18} /> },
   { id: 'flow', label: 'Flow', icon: <GitBranch size={18} /> },
