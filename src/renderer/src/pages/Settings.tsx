@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Settings as SettingsIcon, CheckCircle, XCircle, Loader, Pencil, Trash2, Plus, AlertTriangle } from 'lucide-react'
 import { useAppStore, type EditorFontSize } from '../store/appStore'
 import { PROVIDER_LABELS, type ConnectionInfo } from '../lib/workItemUtils'
+import PipelineSettings from '../components/pipeline/PipelineSettings'
 
 type Provider = 'jira' | 'ado'
 
@@ -364,6 +365,10 @@ export default function Settings(): React.JSX.Element {
         </section>
 
         {/* Divider */}
+        <div className="border-t border-th-bd-1" />
+
+        <PipelineSettings />
+
         <div className="border-t border-th-bd-1" />
 
         {/* About */}

@@ -41,6 +41,11 @@ export default function Pipeline(): React.JSX.Element {
   const trayBtn = useRef<HTMLButtonElement>(null)
 
   const [newCat, setNewCat] = useState<string | null>(null)
+  const [canOpenSession, setCanOpenSession] = useState(false)
+
+  useEffect(() => {
+    window.api?.pipeline.claudeInfo().then((i) => setCanOpenSession(!!i?.canOpenInDesktop))
+  }, [])
 
   // Drag state
   const [dragKey, setDragKey] = useState<string | null>(null)
@@ -91,6 +96,12 @@ export default function Pipeline(): React.JSX.Element {
   )
 
   const needAttention = allItems.filter((i) => i.attention).length
+  const staleCount = allItems.filter((i) => i.stale).length
+
+  async function openSession(sessionId: string): Promise<void> {
+    const r = await window.api?.pipeline.openSession(sessionId)
+    setSyncNote(r?.success ? 'Opening the session in Claude Desktop...' : `Could not open the session: ${r?.message ?? 'unknown error'}`)
+  }
 
   // ─── Actions ────────────────────────────────────────────────────────────────
 
@@ -218,6 +229,8 @@ export default function Pipeline(): React.JSX.Element {
         onOpenEntity={(entityType, entityId, title) =>
           openTab({ entityType: entityType as 'note' | 'code' | 'flow', entityId, title })
         }
+        canOpenSession={canOpenSession}
+        onOpenSession={openSession}
         onMove={(cid) => moveTo(item, cid)}
         onRemove={() => removeItem(item)}
       />
@@ -234,7 +247,9 @@ export default function Pipeline(): React.JSX.Element {
       <div className="flex items-center gap-2 px-4 py-3 border-b border-th-bd-2 flex-shrink-0 flex-wrap">
         <h1 className="text-sm font-medium text-th-tx-2 mr-1">Pipeline</h1>
         <span className="text-xs text-th-tx-4">
-          {allItems.length} tracked{needAttention > 0 ? ` · ${needAttention} need attention` : ''}
+          {allItems.length} tracked
+          {staleCount > 0 ? ` · ${staleCount} stale` : ''}
+          {needAttention > 0 ? ` · ${needAttention} need attention` : ''}
         </span>
         <span className="flex-1" />
 

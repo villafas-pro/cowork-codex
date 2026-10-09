@@ -88,6 +88,9 @@ Key namespaces on `window.api`:
 - ✅ Multiselect on Notes/Code/Flow (`lib/selection.ts`, `BulkBar.tsx`): checkbox, Ctrl/Cmd+click, Shift+click range, Esc clears; bulk tag (all/some/none check marks), archive/restore, delete (locked notes skipped)
 - ✅ Jira Cloud integration alongside Azure DevOps. Work items store `provider` (ado/jira/manual) and `container` (project); item numbers are ADO "123" or Jira "OB-123". "Done" uses a provider-neutral `state_category`. Work Items page can group/filter by project.
 
+- ✅ Pipeline dashboard (Claude, Jira, Rivet, GitHub). Stage is automatic, category is yours. Stage logic lives in `src/shared/pipeline.ts` (pure, property-tested with vitest + fast-check: `npm test`). Evidence: Rivet's Jira comments (`src/main/pipeline/rivet.ts`), GitHub PR state (`github.ts`, token stored encrypted in settings), and Claude Code session events. Tables: `pipeline_categories`, `pipeline_items`, `pipeline_events`. Background refresh every 3 min plus on demand; desktop alerts for PR ready / review / merged / PR closed / stale (muted categories stay quiet).
+- ✅ Claude Code hook: Settings > Pipeline installs four hooks into `~/.claude/settings.json` (backup first, existing hooks kept). The hook script (`hookScript.ts`) drops small JSON files in `<userData>/pipeline-events`; the app ingests and deletes them. "Open session" runs `claude --desktop --resume <id>` and is untested for sessions started in the Desktop Code tab.
+
 ## Notes on work items
 - `work_items.provider = 'manual'` means a plain link the user ticks off themselves.
 - ADO PATs used to live in `settings` (plain text). On first launch they migrate into the `connections` table, encrypted. Older database backups still contain the plain-text token.

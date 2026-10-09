@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
-import { STAGES, deriveStage, stageIndex, type PrEvidence, type StageEvidence } from './pipeline'
+import {
+  STAGES, STALE_AFTER_MS, deriveStage, isStale, stageIndex, transitionAlert,
+  type PrEvidence, type Stage, type StageEvidence
+} from './pipeline'
 
 const prArb: fc.Arbitrary<PrEvidence> = fc.record({
   state: fc.constantFrom('open', 'merged', 'closed'),
@@ -24,6 +27,88 @@ const empty: StageEvidence = {
   rivetPrOpenedAt: null,
   pr: null
 }
+
+describe('transitionAlert', () => {
+  const state = (stage: Stage, attention: 'pr_closed' | null = null, stale = false) => ({ stage, attention, stale })
+  const stateArb = fc.record({
+    stage: fc.constantFrom<Stage>(...STAGES),
+    attention: fc.constantFrom<'pr_closed' | null>(null, 'pr_closed'),
+    stale: fc.boolean()
+  })
+
+  it('never alerts the first time a ticket is seen', () => {
+    fc.assert(fc.property(stateArb, (next) => transitionAlert(null, next) === null))
+  })
+
+  it('never alerts when nothing changed', () => {
+    fc.assert(fc.property(stateArb, (s) => transitionAlert(s, s) === null))
+  })
+
+  it('alerts when a ticket moves forward into PR ready, review or merged', () => {
+    expect(transitionAlert(state('rivet'), state('pr_ready'))).toMatch(/PR ready/i)
+    expect(transitionAlert(state('pr_ready'), state('review'))).toMatch(/review/i)
+    expect(transitionAlert(state('review'), state('merged'))).toMatch(/merged/i)
+    expect(transitionAlert(state('rivet'), state('merged'))).toMatch(/merged/i)
+  })
+
+  it('stays quiet for stages you caused yourself, and for going backwards', () => {
+    expect(transitionAlert(state('assigned'), state('local'))).toBeNull()
+    expect(transitionAlert(state('local'), state('rivet'))).toBeNull()
+    expect(transitionAlert(state('review'), state('pr_ready'))).toBeNull()
+    expect(transitionAlert(state('pr_ready'), state('rivet'))).toBeNull()
+  })
+
+  it('alerts when a PR gets closed without merging, once', () => {
+    expect(transitionAlert(state('pr_ready'), state('pr_ready', 'pr_closed'))).toMatch(/closed/i)
+    expect(transitionAlert(state('pr_ready', 'pr_closed'), state('pr_ready', 'pr_closed'))).toBeNull()
+  })
+
+  it('alerts when a ticket newly goes stale, but not while it stays stale', () => {
+    expect(transitionAlert(state('rivet'), state('rivet', null, true))).toMatch(/stale|no change/i)
+    expect(transitionAlert(state('rivet', null, true), state('rivet', null, true))).toBeNull()
+  })
+
+  it('any alert is a non-empty message', () => {
+    fc.assert(
+      fc.property(stateArb, stateArb, (a, b) => {
+        const r = transitionAlert(a, b)
+        return r === null || r.length > 0
+      })
+    )
+  })
+})
+
+describe('isStale', () => {
+  const stageArb = fc.constantFrom<Stage>(...STAGES)
+
+  it('stages that are waiting on you or finished are never stale', () => {
+    fc.assert(
+      fc.property(fc.constantFrom<Stage>('assigned', 'local', 'merged'), fc.integer({ min: 0, max: 1e10 }), (s, age) =>
+        isStale(s, 0, age) === false
+      )
+    )
+  })
+
+  it('waiting stages go stale exactly at their limit', () => {
+    for (const s of ['rivet', 'pr_ready', 'review'] as const) {
+      const limit = STALE_AFTER_MS[s] as number
+      expect(isStale(s, 1000, 1000 + limit - 1)).toBe(false)
+      expect(isStale(s, 1000, 1000 + limit)).toBe(true)
+    }
+  })
+
+  it('once stale, always stale as time passes', () => {
+    fc.assert(
+      fc.property(stageArb, fc.integer({ min: 0, max: 1e9 }), fc.integer({ min: 0, max: 1e9 }), (s, age, extra) =>
+        !isStale(s, 0, age) || isStale(s, 0, age + extra)
+      )
+    )
+  })
+
+  it('a future timestamp is never stale', () => {
+    fc.assert(fc.property(stageArb, (s) => isStale(s, 5000, 1000) === false))
+  })
+})
 
 describe('deriveStage', () => {
   it('no evidence means assigned', () => {

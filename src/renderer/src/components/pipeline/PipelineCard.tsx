@@ -1,5 +1,5 @@
 import React from 'react'
-import { Activity, AlertTriangle, Code2, ExternalLink, FileText, GitBranch, GitPullRequest, ArrowRightLeft, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowRightLeft, Clock, Code2, ExternalLink, FileText, GitBranch, GitPullRequest, Terminal, Trash2 } from 'lucide-react'
 import RowMenu from '../RowMenu'
 import { tagColor } from '../../lib/tags'
 import {
@@ -9,6 +9,19 @@ import {
 
 function tint(hex: string): string {
   return `${hex}26` // 15% alpha
+}
+
+/** Short PR status for the PR link, from GitHub when we have it. */
+function prStatus(item: PipelineItem): string {
+  const pr = item.pr
+  if (!pr) return ''
+  if (pr.state === 'merged') return 'merged'
+  if (pr.state === 'closed') return 'closed'
+  if (pr.review === 'changes_requested') return 'changes requested'
+  if (pr.review === 'approved') return 'approved'
+  if (pr.draft) return 'draft'
+  if (pr.review === 'commented') return 'commented'
+  return 'open'
 }
 
 const ENTITY_ICON: Record<string, React.ReactNode> = {
@@ -28,6 +41,8 @@ export default function PipelineCard({
   onOpenTicket,
   onOpenLink,
   onOpenEntity,
+  canOpenSession,
+  onOpenSession,
   onMove,
   onRemove
 }: {
@@ -42,6 +57,9 @@ export default function PipelineCard({
   onOpenTicket: () => void
   onOpenLink: (url: string) => void
   onOpenEntity: (entityType: string, entityId: string, title: string) => void
+  /** The claude command can open sessions in the Desktop app */
+  canOpenSession: boolean
+  onOpenSession: (sessionId: string) => void
   onMove: (categoryId: string) => void
   onRemove: () => void
 }): React.JSX.Element {
@@ -114,6 +132,15 @@ export default function PipelineCard({
             Local live
           </span>
         )}
+        {item.stale && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] leading-4 text-amber-400 bg-amber-500/15"
+            title={`No change for ${timeAgo(item.stage_since)}. Longer than usual for this stage.`}
+          >
+            <Clock size={10} />
+            Stale {timeAgo(item.stage_since)}
+          </span>
+        )}
         {item.attention === 'pr_closed' && (
           <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] leading-4 text-amber-400 bg-amber-500/15" title="The PR was closed without merging">
             <AlertTriangle size={10} />
@@ -152,11 +179,20 @@ export default function PipelineCard({
         {pr && item.pr_url && (
           <LinkButton onClick={() => onOpenLink(item.pr_url as string)} title={`Open PR #${pr.number} in ${pr.repo}`}>
             <GitPullRequest size={11} /> #{pr.number}
+            {prStatus(item) && <span className="text-th-tx-5">{prStatus(item)}</span>}
           </LinkButton>
         )}
         {item.run_url && (
           <LinkButton onClick={() => onOpenLink(item.run_url as string)} title="Open Rivet run history">
             <Activity size={11} /> Run
+          </LinkButton>
+        )}
+        {canOpenSession && item.last_session && (
+          <LinkButton
+            onClick={() => onOpenSession((item.last_session as { session_id: string }).session_id)}
+            title={`Open the Claude Code session${item.last_session.branch ? ` on ${item.last_session.branch}` : ''} in Claude Desktop`}
+          >
+            <Terminal size={11} /> Claude
           </LinkButton>
         )}
         {item.links.slice(0, 2).map((l) => (

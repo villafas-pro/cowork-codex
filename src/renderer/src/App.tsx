@@ -152,13 +152,33 @@ declare global {
         deleteCategory: (id: string) => Promise<boolean>
         reorderCategories: (ids: string[]) => Promise<{ success: boolean }>
         onUpdated: (cb: () => void) => () => void
+        githubStatus: () => Promise<{ hasToken: boolean; unreadable: boolean }>
+        githubSave: (token: string) => Promise<{ hasToken: boolean; unreadable: boolean }>
+        githubTest: () => Promise<{ success: boolean; detail?: string; error?: string }>
+        hooksStatus: () => Promise<import('./lib/pipelineUi').HooksStatus>
+        hooksInstall: () => Promise<{ success: true } | { success: false; error: string }>
+        hooksRemove: () => Promise<{ success: true } | { success: false; error: string }>
+        claudeInfo: () => Promise<import('./lib/pipelineUi').ClaudeInfo>
+        openSession: (sessionId: string) => Promise<{ success: boolean; message: string }>
+        rivetAuthor: () => Promise<string>
+      }
+      navigation: {
+        onNavigate: (cb: (section: string) => void) => () => void
       }
     }
   }
 }
 
 export default function App(): React.JSX.Element {
-  const { activeSection, searchOpen, setSearchOpen, setTheme, setEditorFontSize, viewMode, tabs, activeTabId, restoreTabs, setIntegrationStatus } = useAppStore()
+  const { activeSection, searchOpen, setSearchOpen, setTheme, setEditorFontSize, viewMode, tabs, activeTabId, restoreTabs, setIntegrationStatus, setActiveSection } = useAppStore()
+
+  // A desktop notification click asks the window to show the Pipeline page
+  useEffect(() => {
+    const off = window.api?.navigation.onNavigate((section) => {
+      if (section === 'pipeline') setActiveSection('pipeline')
+    })
+    return () => off?.()
+  }, [setActiveSection])
 
   // Check every work item connection (ADO and Jira)
   async function checkIntegrations(): Promise<void> {

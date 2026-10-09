@@ -163,6 +163,24 @@ const api = {
       const handler = (): void => cb()
       ipcRenderer.on('pipeline:updated', handler)
       return () => ipcRenderer.removeListener('pipeline:updated', handler)
+    },
+    githubStatus: () => ipcRenderer.invoke('pipeline:github:status'),
+    githubSave: (token: string) => ipcRenderer.invoke('pipeline:github:save', token),
+    githubTest: () => ipcRenderer.invoke('pipeline:github:test'),
+    hooksStatus: () => ipcRenderer.invoke('pipeline:hooks:status'),
+    hooksInstall: () => ipcRenderer.invoke('pipeline:hooks:install'),
+    hooksRemove: () => ipcRenderer.invoke('pipeline:hooks:remove'),
+    claudeInfo: () => ipcRenderer.invoke('pipeline:claudeInfo'),
+    openSession: (sessionId: string) => ipcRenderer.invoke('pipeline:openSession', sessionId),
+    rivetAuthor: () => ipcRenderer.invoke('pipeline:rivetAuthor')
+  },
+
+  // Main process asking the window to switch section (for example, from a notification click)
+  navigation: {
+    onNavigate: (cb: (section: string) => void) => {
+      const handler = (_: unknown, section: string): void => cb(section)
+      ipcRenderer.on('app:navigate', handler)
+      return () => ipcRenderer.removeListener('app:navigate', handler)
     }
   },
 

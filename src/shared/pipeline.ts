@@ -15,6 +15,50 @@ export function stageIndex(stage: Stage): number {
   return STAGES.indexOf(stage)
 }
 
+const HOUR = 60 * 60 * 1000
+
+/**
+ * How long a ticket can sit in a stage before it is flagged as stale. `null` means never:
+ * Assigned and Local are waiting on you rather than on a machine or a reviewer, and Merged is done.
+ */
+export const STALE_AFTER_MS: Record<Stage, number | null> = {
+  assigned: null,
+  local: null,
+  rivet: 3 * HOUR,
+  pr_ready: 24 * HOUR,
+  review: 48 * HOUR,
+  merged: null
+}
+
+export function isStale(stage: Stage, since: number, now: number): boolean {
+  const limit = STALE_AFTER_MS[stage]
+  return limit !== null && now - since >= limit
+}
+
+export interface AlertState {
+  stage: Stage
+  attention: 'pr_closed' | null
+  stale: boolean
+}
+
+/**
+ * What, if anything, to tell the user when a ticket's state changes. Only events you did not cause
+ * yourself and might want to act on: PR ready, review activity, merged, PR closed, gone stale.
+ * `prev` is null the first time a ticket is seen, which never alerts.
+ */
+export function transitionAlert(prev: AlertState | null, next: AlertState): string | null {
+  if (!prev) return null
+  if (next.attention === 'pr_closed' && prev.attention !== 'pr_closed') return 'The PR was closed without merging'
+  if (next.stage !== prev.stage && stageIndex(next.stage) > stageIndex(prev.stage)) {
+    if (next.stage === 'pr_ready') return 'PR ready'
+    if (next.stage === 'review') return 'Review activity on the PR'
+    if (next.stage === 'merged') return 'Merged'
+    return null
+  }
+  if (next.stale && !prev.stale && next.stage === prev.stage) return 'No change for a while (stale)'
+  return null
+}
+
 export interface PrEvidence {
   state: 'open' | 'merged' | 'closed'
   draft: boolean

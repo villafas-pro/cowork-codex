@@ -63,10 +63,12 @@ export interface PipelineItem {
   stage_since: number
   local_active: boolean
   attention: 'pr_closed' | null
+  stale: boolean
   pr_url: string | null
   pr: PipelinePr | null
   run_url: string | null
   session: { session_id: string; cwd: string; branch: string } | null
+  last_session: { session_id: string; cwd: string; branch: string; active: boolean } | null
   links: { entity_type: string; entity_id: string; title: string }[]
 }
 
@@ -74,6 +76,23 @@ export interface PipelineBoard {
   categories: PipelineCategory[]
   items: PipelineItem[]
   stageCounts: Record<Stage, number>
+}
+
+export interface ClaudeInfo {
+  found: boolean
+  version: string | null
+  /** Claude Code is new enough for `claude --desktop --resume` */
+  canOpenInDesktop: boolean
+}
+
+export interface HooksStatus {
+  installed: boolean
+  scriptExists: boolean
+  settingsReadable: boolean
+  settingsPath: string
+  eventsDir: string
+  nodeAvailable: boolean
+  claude: ClaudeInfo
 }
 
 export interface PipelineSyncResult {

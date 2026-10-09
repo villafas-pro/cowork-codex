@@ -118,6 +118,11 @@ function migratePipeline(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_pipeline_events_item ON pipeline_events(item_key, at);
   `)
 
+  // What we last told the user about each ticket, so alerts fire on changes only
+  addColumnIfMissing(db, 'pipeline_items', 'last_stage', "TEXT NOT NULL DEFAULT ''")
+  addColumnIfMissing(db, 'pipeline_items', 'last_attention', "TEXT NOT NULL DEFAULT ''")
+  addColumnIfMissing(db, 'pipeline_items', 'last_stale', 'INTEGER NOT NULL DEFAULT 0')
+
   const seeded = db.prepare("SELECT value FROM settings WHERE key = 'pipeline_seeded'").get()
   if (!seeded) {
     const insert = db.prepare(
