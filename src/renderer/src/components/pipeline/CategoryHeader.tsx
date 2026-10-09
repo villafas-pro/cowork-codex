@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { BellOff, Check, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { ArrowUpDown, BellOff, Check, ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import Popover from '../Popover'
 import { TAG_COLORS, tagColor } from '../../lib/tags'
 import { STAGE_META, STAGE_ORDER, type PipelineCategory, type PipelineItem } from '../../lib/pipelineUi'
@@ -15,6 +15,7 @@ export default function CategoryHeader({
   onRecolor,
   onToggleMute,
   onMove,
+  onSort,
   onDelete
 }: {
   category: PipelineCategory
@@ -28,6 +29,7 @@ export default function CategoryHeader({
   onRecolor: (color: string) => void
   onToggleMute: () => void
   onMove: (dir: -1 | 1) => void
+  onSort: () => void
   onDelete: () => void
 }): React.JSX.Element {
   const c = tagColor(category.color)
@@ -73,6 +75,13 @@ export default function CategoryHeader({
         </span>
         {category.muted ? <span title="Alerts are off for this category"><BellOff size={11} className="text-th-tx-5" /></span> : null}
         <span className="flex-1" />
+        <button
+          onClick={onSort}
+          className="p-1 rounded text-th-tx-5 hover:text-th-tx-1 hover:bg-th-bg-5"
+          title="Sort by ticket number (click again to reverse)"
+        >
+          <ArrowUpDown size={13} />
+        </button>
         <button
           ref={btn}
           onClick={() => setAnchor(anchor ? null : btn.current?.getBoundingClientRect() ?? null)}

@@ -145,6 +145,7 @@ declare global {
         add: (ref: string, categoryId?: string) => Promise<{ success: true; key: string } | { success: false; error: string }>
         remove: (key: string) => Promise<{ success: boolean }>
         move: (key: string, categoryId: string, index: number) => Promise<boolean>
+        reorderItems: (categoryId: string, keys: string[]) => Promise<{ success: boolean }>
         inbox: (force?: boolean) => Promise<import('./lib/pipelineUi').PipelineInbox>
         inboxHide: (key: string) => Promise<{ success: boolean }>
         inboxRestore: () => Promise<{ success: boolean }>

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, RefreshCw, Columns3, Rows3, Inbox, X } from 'lucide-react'
+import { ArrowUpDown, Plus, RefreshCw, Columns3, Rows3, Inbox, X } from 'lucide-react'
 import { useAppStore } from '../store/appStore'
 import StageStrip from '../components/pipeline/StageStrip'
 import PipelineCard from '../components/pipeline/PipelineCard'
 import CategoryHeader from '../components/pipeline/CategoryHeader'
 import InboxColumn from '../components/pipeline/InboxColumn'
+import { nextDirection, sortKeys, type Direction } from '../lib/ticketOrder'
 import {
   STAGE_META, STAGE_ORDER, timeAgo,
   type InboxItem, type PipelineBoard, type PipelineInbox, type PipelineItem, type Stage
@@ -50,6 +51,16 @@ export default function Pipeline(): React.JSX.Element {
   useEffect(() => {
     window.api?.pipeline.claudeInfo().then((i) => setCanOpenSession(!!i?.canOpenInDesktop))
   }, [])
+
+  // Sorting by ticket number: categories persist the order, Inbox and stage columns just reorder the view
+  const [inboxDir, setInboxDir] = useState<Direction | null>(null)
+  const [stageDir, setStageDir] = useState<Partial<Record<Stage, Direction>>>({})
+
+  async function sortCategory(categoryId: string): Promise<void> {
+    const current = allItems.filter((i) => i.category_id === categoryId).sort((a, b) => a.position - b.position).map((i) => i.item_key)
+    await window.api?.pipeline.reorderItems(categoryId, sortKeys(current, nextDirection(current)))
+    await load()
+  }
 
   // Drag state
   const [dragKey, setDragKey] = useState<string | null>(null)
@@ -355,7 +366,7 @@ export default function Pipeline(): React.JSX.Element {
           <div className="flex gap-3 h-full">
             {showInbox && (
               <InboxColumn
-                inbox={inbox}
+                inbox={inbox && inboxDir ? { ...inbox, items: orderInbox(inbox.items, inboxDir) } : inbox}
                 error={inboxError}
                 loading={inboxLoading}
                 draggingKey={dragFrom === 'inbox' ? dragKey : null}
@@ -371,6 +382,10 @@ export default function Pipeline(): React.JSX.Element {
                 onRestore={async () => { await window.api?.pipeline.inboxRestore(); await loadInbox(true) }}
                 onOpenTicket={(i: InboxItem) => openTab({ entityType: 'work-item', entityId: i.key, title: i.title || i.key })}
                 onOpenLink={(url) => window.api?.shell.openExternal(url)}
+                onSort={() => {
+                  const keys = (inbox?.items ?? []).map((i) => i.key)
+                  setInboxDir(nextDirection(inboxDir ? sortKeys(keys, inboxDir) : keys))
+                }}
                 onClose={() => setShowInbox(false)}
               />
             )}
@@ -404,6 +419,7 @@ export default function Pipeline(): React.JSX.Element {
                         onRecolor={async (color) => { await window.api?.pipeline.updateCategory(cat.id, { color }); await load() }}
                         onToggleMute={async () => { await window.api?.pipeline.updateCategory(cat.id, { muted: !cat.muted }); await load() }}
                         onMove={(dir) => moveCategory(cat.id, dir)}
+                        onSort={() => sortCategory(cat.id)}
                         onDelete={() => deleteCategory(cat.id, cat.name, total)}
                       />
                       <div
@@ -423,9 +439,14 @@ export default function Pipeline(): React.JSX.Element {
                 })
               : (allItems.length === 0 && view === 'stage') ? null
               : STAGE_ORDER.map((stage) => {
+                  const dir = stageDir[stage]
                   const col = shown
                     .filter((i) => i.stage === stage)
                     .sort((a, b) => b.stage_since - a.stage_since)
+                  if (dir) {
+                    const order = sortKeys(col.map((i) => i.item_key), dir)
+                    col.sort((a, b) => order.indexOf(a.item_key) - order.indexOf(b.item_key))
+                  }
                   const meta = STAGE_META[stage]
                   return (
                     <section key={stage} className="flex-1 min-w-[210px] flex flex-col min-h-0">
@@ -433,6 +454,14 @@ export default function Pipeline(): React.JSX.Element {
                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: meta.color }} />
                         <h2 className="text-sm font-medium text-th-tx-1">{meta.label}</h2>
                         <span className="text-xs text-th-tx-4 tabular-nums">{col.length}</span>
+                        <span className="flex-1" />
+                        <button
+                          onClick={() => setStageDir((d) => ({ ...d, [stage]: nextDirection(col.map((i) => i.item_key)) }))}
+                          className="p-1 rounded text-th-tx-5 hover:text-th-tx-1 hover:bg-th-bg-5"
+                          title="Sort by ticket number (click again to reverse)"
+                        >
+                          <ArrowUpDown size={13} />
+                        </button>
                       </div>
                       <div className="flex-1 min-h-[80px] overflow-y-auto space-y-2 pr-1">
                         {col.map((item, i) => renderCard(item, stage, i, col, false))}
@@ -479,6 +508,11 @@ export default function Pipeline(): React.JSX.Element {
       </div>
     </div>
   )
+}
+
+function orderInbox(items: InboxItem[], dir: Direction): InboxItem[] {
+  const order = sortKeys(items.map((i) => i.key), dir)
+  return [...items].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
 }
 
 function DropLine(): React.JSX.Element {

@@ -1,5 +1,5 @@
 import React from 'react'
-import { ExternalLink, EyeOff, Inbox, Plus, RotateCcw, X } from 'lucide-react'
+import { ArrowUpDown, ExternalLink, EyeOff, Inbox, Plus, RotateCcw, X } from 'lucide-react'
 import type { InboxItem, PipelineInbox } from '../../lib/pipelineUi'
 
 /**
@@ -18,6 +18,7 @@ export default function InboxColumn({
   onRestore,
   onOpenTicket,
   onOpenLink,
+  onSort,
   onClose
 }: {
   inbox: PipelineInbox | null
@@ -31,6 +32,7 @@ export default function InboxColumn({
   onRestore: () => void
   onOpenTicket: (item: InboxItem) => void
   onOpenLink: (url: string) => void
+  onSort: () => void
   onClose: () => void
 }): React.JSX.Element {
   const items = inbox?.items ?? []
@@ -42,6 +44,9 @@ export default function InboxColumn({
           <h2 className="text-sm font-medium text-th-tx-1">Inbox</h2>
           <span className="text-xs text-th-tx-4 tabular-nums">{items.length}</span>
           <span className="flex-1" />
+          <button onClick={onSort} className="p-1 rounded text-th-tx-5 hover:text-th-tx-1 hover:bg-th-bg-5" title="Sort by ticket number (click again to reverse)">
+            <ArrowUpDown size={13} />
+          </button>
           <button onClick={onClose} className="p-1 rounded text-th-tx-5 hover:text-th-tx-1 hover:bg-th-bg-5" title="Hide the Inbox">
             <X size={13} />
           </button>

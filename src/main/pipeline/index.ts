@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
+import { applyOrder } from './order'
 import { readFileSync, readdirSync, rmSync } from 'fs'
 import { join } from 'path'
 import { getDb } from '../db'
@@ -165,6 +166,18 @@ export async function addItem(
 
 export function removeItem(key: string): void {
   getDb().prepare('UPDATE pipeline_items SET dismissed_at = ? WHERE item_key = ?').run(Date.now(), key)
+}
+
+/** Reorder one category's cards to match `keys` (cards not listed keep their relative order, after the listed ones). */
+export function reorderCategory(categoryId: string, keys: string[]): void {
+  const db = getDb()
+  db.transaction(() => {
+    const current = (db
+      .prepare('SELECT item_key FROM pipeline_items WHERE category_id = ? AND dismissed_at IS NULL ORDER BY position')
+      .all(categoryId) as { item_key: string }[]).map((r) => r.item_key)
+    const upd = db.prepare('UPDATE pipeline_items SET position = ? WHERE item_key = ?')
+    applyOrder(current, keys).forEach((k, i) => upd.run(i, k))
+  })()
 }
 
 /** Put a card at `index` within a category, renumbering that category's cards. */

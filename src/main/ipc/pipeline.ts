@@ -4,7 +4,8 @@ import { homedir } from 'os'
 import { join } from 'path'
 import {
   addItem, autoAddRivetTickets, createCategory, deleteCategory, detectAlerts, getBoard, getInbox,
-  githubToken, githubTokenStatus, hideFromInbox, ingestSessionEvents, listCategories, moveItem, removeItem,
+  githubToken, githubTokenStatus, hideFromInbox, ingestSessionEvents, listCategories, moveItem,
+  reorderCategory, removeItem,
   reorderCategories, restoreInbox, rivetAuthor, setGithubToken, syncAllItems, updateCategory, type PipelineAlert
 } from '../pipeline'
 import { testToken } from '../pipeline/github'
@@ -126,6 +127,10 @@ export function registerPipelineHandlers(): void {
   ipcMain.handle('pipeline:move', (_, key: string, categoryId: string, index: number) =>
     moveItem(String(key), String(categoryId), Number(index))
   )
+  ipcMain.handle('pipeline:reorderItems', (_, categoryId: string, keys: string[]) => {
+    reorderCategory(String(categoryId), Array.isArray(keys) ? keys.map(String) : [])
+    return { success: true }
+  })
   ipcMain.handle('pipeline:inbox', (_, force?: boolean) => getInbox(!!force))
   ipcMain.handle('pipeline:inboxHide', (_, key: string) => {
     hideFromInbox(String(key))

@@ -152,6 +152,7 @@ const api = {
     add: (ref: string, categoryId?: string) => ipcRenderer.invoke('pipeline:add', ref, categoryId),
     remove: (key: string) => ipcRenderer.invoke('pipeline:remove', key),
     move: (key: string, categoryId: string, index: number) => ipcRenderer.invoke('pipeline:move', key, categoryId, index),
+    reorderItems: (categoryId: string, keys: string[]) => ipcRenderer.invoke('pipeline:reorderItems', categoryId, keys),
     inbox: (force?: boolean) => ipcRenderer.invoke('pipeline:inbox', force),
     inboxHide: (key: string) => ipcRenderer.invoke('pipeline:inboxHide', key),
     inboxRestore: () => ipcRenderer.invoke('pipeline:inboxRestore'),
