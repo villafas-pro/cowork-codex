@@ -19,7 +19,7 @@ describe('compareKeys', () => {
       fc.string({ maxLength: 4 })
     )
     fc.assert(fc.property(key, key, key, (a, b, c) => {
-      expect(Math.sign(compareKeys(a, b))).toBe(-Math.sign(compareKeys(b, a)))
+      expect(Math.sign(compareKeys(a, b)) + Math.sign(compareKeys(b, a))).toBe(0)
       if (compareKeys(a, b) <= 0 && compareKeys(b, c) <= 0) expect(compareKeys(a, c)).toBeLessThanOrEqual(0)
     }))
   })
