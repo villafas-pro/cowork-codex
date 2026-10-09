@@ -7,7 +7,7 @@ import CategoryHeader from '../components/pipeline/CategoryHeader'
 import InboxColumn from '../components/pipeline/InboxColumn'
 import { nextDirection, sortKeys, type Direction } from '../lib/ticketOrder'
 import {
-  STAGE_META, STAGE_ORDER, timeAgo,
+  STAGE_META, STAGE_ORDER, updatedLabel,
   type InboxItem, type PipelineBoard, type PipelineInbox, type PipelineItem, type Stage
 } from '../lib/pipelineUi'
 
@@ -337,7 +337,7 @@ export default function Pipeline(): React.JSX.Element {
           title="Re-read Jira and Rivet now"
         >
           <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'Refreshing' : lastSynced ? `Updated ${timeAgo(lastSynced)} ago` : 'Refresh'}
+          {syncing ? 'Refreshing' : lastSynced ? updatedLabel(lastSynced) : 'Refresh'}
         </button>
       </div>
 

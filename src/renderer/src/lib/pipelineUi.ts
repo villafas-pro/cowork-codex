@@ -25,6 +25,12 @@ export function timeAgo(ts: number, now = Date.now()): string {
   return `${Math.floor(h / 24)}d`
 }
 
+/** "Updated just now", "Updated 5m ago" */
+export function updatedLabel(ts: number, now = Date.now()): string {
+  const t = timeAgo(ts, now)
+  return t === 'just now' ? 'Updated just now' : `Updated ${t} ago`
+}
+
 /** Pull request number and repo name from a GitHub PR URL. */
 export function parsePrUrl(url: string | null): { repo: string; number: string } | null {
   const m = url?.match(/github\.com\/[^/]+\/([^/]+)\/pull\/(\d+)/)
