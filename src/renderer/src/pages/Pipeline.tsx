@@ -225,7 +225,8 @@ export default function Pipeline(): React.JSX.Element {
     </div>
   )
 
-  const columnShell = 'flex-shrink-0 w-[300px] flex flex-col min-h-0'
+  // Columns share the width equally and only scroll sideways once they would get narrower than the minimum
+  const columnShell = 'flex-1 min-w-[270px] flex flex-col min-h-0'
 
   return (
     <div className="flex flex-col h-full">
