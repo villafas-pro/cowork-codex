@@ -343,8 +343,8 @@ export default function Pipeline(): React.JSX.Element {
 
       {(addError || syncNote) && (
         <div className="mx-4 mt-2 flex items-center gap-2 rounded-lg border border-th-bd-2 bg-th-bg-3 px-3 py-1.5 text-xs text-th-tx-3">
-          <span className="flex-1">{addError ?? syncNote}</span>
-          <button onClick={() => { setAddError(null); setSyncNote(null) }} className="text-th-tx-5 hover:text-th-tx-1">
+          <span className="flex-1 min-w-0 break-words [overflow-wrap:anywhere] max-h-24 overflow-y-auto">{addError ?? syncNote}</span>
+          <button onClick={() => { setAddError(null); setSyncNote(null) }} className="flex-shrink-0 self-start text-th-tx-5 hover:text-th-tx-1">
             <X size={12} />
           </button>
         </div>

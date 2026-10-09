@@ -16,7 +16,7 @@ function Result({ note }: { note: Note }): React.JSX.Element | null {
   return (
     <p className={`mt-2 flex items-start gap-1.5 text-xs ${note.ok ? 'text-green-400' : 'text-amber-400'}`}>
       {note.ok ? <CheckCircle size={13} className="mt-0.5 flex-shrink-0" /> : <XCircle size={13} className="mt-0.5 flex-shrink-0" />}
-      <span>{note.text}</span>
+      <span className="min-w-0 break-words [overflow-wrap:anywhere]">{note.text}</span>
     </p>
   )
 }
@@ -169,7 +169,7 @@ export default function PipelineSettings(): React.JSX.Element {
             {hooks && !hooks.settingsReadable && (
               <p className="text-xs text-amber-400">Claude Code's settings file could not be read as JSON, so hooks cannot be installed until it is fixed.</p>
             )}
-            <p className="text-[11px] text-th-tx-5">
+            <p className="text-[11px] text-th-tx-5 break-words [overflow-wrap:anywhere]">
               Open session button:{' '}
               {hooks?.claude.found
                 ? hooks.claude.canOpenInDesktop
