@@ -22,10 +22,10 @@ export default function ConfirmDialog(): React.JSX.Element | null {
       onClick={() => resolveConfirm(false)}
     >
       <div
-        className="bg-th-bg-4 border border-th-bd-3 rounded-xl p-5 w-80 shadow-2xl"
+        className="bg-th-bg-4 border border-th-bd-3 rounded-xl p-5 w-96 max-w-[90vw] max-h-[85vh] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-sm text-th-tx-2 leading-relaxed">{confirmDialog.message}</p>
+        <p className="text-sm text-th-tx-2 leading-relaxed whitespace-pre-line break-words [overflow-wrap:anywhere] overflow-y-auto min-h-0">{confirmDialog.message}</p>
         <div className="flex justify-end gap-2 mt-5">
           <button
             onClick={() => resolveConfirm(false)}
@@ -36,9 +36,11 @@ export default function ConfirmDialog(): React.JSX.Element | null {
           </button>
           <button
             onClick={() => resolveConfirm(true)}
-            className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white font-medium rounded-md transition-all"
+            className={`px-3 py-1.5 text-xs text-white font-medium rounded-md transition-all ${
+              confirmDialog.danger === false ? 'bg-accent hover:bg-accent-hover !text-black' : 'bg-red-600 hover:bg-red-500'
+            }`}
           >
-            Delete
+            {confirmDialog.confirmLabel ?? 'Delete'
           </button>
         </div>
       </div>

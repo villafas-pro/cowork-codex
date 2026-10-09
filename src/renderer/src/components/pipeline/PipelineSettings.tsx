@@ -80,7 +80,8 @@ export default function PipelineSettings(): React.JSX.Element {
     const ok = await showConfirm(
       `This adds four hooks (session start, prompt, stop, session end) to Claude Code's settings file:\n\n${hooks.settingsPath}\n\n` +
       'Your existing settings and hooks are kept, and the original file is backed up next to it first. ' +
-      'The hooks only record which ticket a session is working on, so the Pipeline can show it as Local.'
+      'The hooks only record which ticket a session is working on, so the Pipeline can show it as Local.',
+      { confirmLabel: 'Install', danger: false }
     )
     if (!ok) return
     setHooksBusy(true)

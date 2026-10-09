@@ -67,8 +67,8 @@ interface AppStore {
   ) => void
 
   // Confirm dialog
-  confirmDialog: { message: string; resolve: (v: boolean) => void } | null
-  showConfirm: (message: string) => Promise<boolean>
+  confirmDialog: { message: string; confirmLabel?: string; danger?: boolean; resolve: (v: boolean) => void } | null
+  showConfirm: (message: string, opts?: { confirmLabel?: string; danger?: boolean }) => Promise<boolean>
   resolveConfirm: (result: boolean) => void
 }
 
@@ -258,9 +258,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ integrationStatus: status, integrationFailures: failures }),
 
   confirmDialog: null,
-  showConfirm: (message) =>
+  showConfirm: (message, opts) =>
     new Promise((resolve) => {
-      set({ confirmDialog: { message, resolve } })
+      set({ confirmDialog: { message, confirmLabel: opts?.confirmLabel, danger: opts?.danger, resolve } })
     }),
   resolveConfirm: (result) => {
     const { confirmDialog } = get()
