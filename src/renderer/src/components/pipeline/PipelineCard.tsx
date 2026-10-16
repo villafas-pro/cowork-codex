@@ -3,7 +3,7 @@ import { Activity, AlertTriangle, ArrowRightLeft, Clock, Code2, ExternalLink, Fi
 import RowMenu from '../RowMenu'
 import { tagColor } from '../../lib/tags'
 import {
-  STAGE_META, STAGE_ORDER, parsePrUrl, timeAgo,
+  STAGE_META, STAGE_ORDER, finalReviewNote, parsePrUrl, timeAgo,
   type PipelineCategory, type PipelineItem
 } from '../../lib/pipelineUi'
 
@@ -17,12 +17,21 @@ function prStatus(item: PipelineItem): string {
   if (!pr) return ''
   if (pr.state === 'merged') return 'merged'
   if (pr.state === 'closed') return 'closed'
+  if (pr.humanReview === 'approved') return 'approved'
+  if (pr.humanReview === 'changes_requested') return 'changes requested'
   if (pr.review === 'changes_requested') return 'changes requested'
   if (pr.review === 'approved') return 'approved'
   if (pr.draft) return 'draft'
   if (pr.review === 'commented') return 'commented'
   return 'open'
 }
+
+const NOTE_TONE = {
+  wait: 'text-th-tx-3 bg-th-bg-6',
+  good: 'text-green-400 bg-green-500/15',
+  warn: 'text-amber-400 bg-amber-500/15',
+  info: 'text-sky-400 bg-sky-500/15'
+} as const
 
 const ENTITY_ICON: Record<string, React.ReactNode> = {
   note: <FileText size={11} />,
@@ -69,6 +78,7 @@ export default function PipelineCard({
   const category = categories.find((c) => c.id === item.category_id)
   const catColor = category ? tagColor(category.color) : null
   const muted = !!category?.muted
+  const reviewNote = item.stage === 'final_review' ? finalReviewNote(item.pr) : null
 
   return (
     <div
@@ -139,6 +149,14 @@ export default function PipelineCard({
           >
             <Clock size={10} />
             Stale {timeAgo(item.stage_since)}
+          </span>
+        )}
+        {reviewNote && (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] leading-4 ${NOTE_TONE[reviewNote.tone]}`}
+            title="What the people reviewing this PR have done (Copilot and the PR author are not counted)"
+          >
+            {reviewNote.label}
           </span>
         )}
         {item.attention === 'pr_closed' && (

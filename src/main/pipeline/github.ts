@@ -8,6 +8,12 @@ export interface GhPull {
   state: string
   merged: boolean
   draft: boolean
+  /** Login of whoever opened the PR */
+  author?: string
+  /** Logins currently requested for review */
+  requestedReviewers?: string[]
+  /** Team slugs currently requested for review */
+  requestedTeams?: string[]
 }
 
 export interface GhReview {
@@ -23,7 +29,29 @@ export interface GhReview {
  *    does not change it (same as GitHub)
  *  - any outstanding change request wins, then approval, then plain comments
  *  - commitsAfterReview: a commit newer than the latest review
+ *  - humanRequested / humanReview: the same, for people only (Copilot, other bots and the PR author
+ *    are left out). Needed because GitHub drops a reviewer from the requested list once they review.
  */
+/** Copilot and any other bot account. Their reviews never count as a person looking at the PR. */
+export function isBot(login: string): boolean {
+  return /copilot/i.test(login) || /\[bot\]$/i.test(login)
+}
+
+function decide(reviews: GhReview[], commented: boolean): PrEvidence['review'] {
+  const decision = new Map<string, string>()
+  for (const r of reviews) {
+    if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED') decision.set(r.user, r.state)
+  }
+  const decisions = [...decision.values()]
+  return decisions.includes('CHANGES_REQUESTED')
+    ? 'changes_requested'
+    : decisions.includes('APPROVED')
+      ? 'approved'
+      : commented
+        ? 'commented'
+        : 'none'
+}
+
 export function summarizePr(pull: GhPull, reviews: GhReview[], commitDates: string[], reviewCommentCount: number): PrEvidence {
   const state: PrEvidence['state'] = pull.merged ? 'merged' : pull.state === 'closed' ? 'closed' : 'open'
 
@@ -32,26 +60,20 @@ export function summarizePr(pull: GhPull, reviews: GhReview[], commitDates: stri
     // Ties broken by state so the input order never matters
     .sort((a, b) => Date.parse(a.submitted_at) - Date.parse(b.submitted_at) || a.state.localeCompare(b.state))
 
-  const decision = new Map<string, string>()
-  for (const r of counted) {
-    if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED') decision.set(r.user, r.state)
-  }
-  const decisions = [...decision.values()]
   const commented = counted.some((r) => r.state === 'COMMENTED') || reviewCommentCount > 0
+  const review = decide(counted, commented)
 
-  const review: PrEvidence['review'] = decisions.includes('CHANGES_REQUESTED')
-    ? 'changes_requested'
-    : decisions.includes('APPROVED')
-      ? 'approved'
-      : commented
-        ? 'commented'
-        : 'none'
+  // People only: not Copilot or other bots, and not the author replying to their own threads
+  const people = counted.filter((r) => !isBot(r.user) && r.user !== pull.author)
+  const humanReview = decide(people, people.some((r) => r.state === 'COMMENTED'))
+  const humanRequested =
+    (pull.requestedReviewers ?? []).some((login) => !isBot(login)) || (pull.requestedTeams ?? []).length > 0
 
   const lastReview = counted.length ? Math.max(...counted.map((r) => Date.parse(r.submitted_at))) : null
   const lastCommit = commitDates.length ? Math.max(...commitDates.map((d) => Date.parse(d))) : null
   const commitsAfterReview = lastReview !== null && lastCommit !== null && lastCommit > lastReview
 
-  return { state, draft: pull.draft, review, commitsAfterReview }
+  return { state, draft: pull.draft, review, commitsAfterReview, humanRequested, humanReview }
 }
 
 export function parsePullUrl(url: string): { owner: string; repo: string; number: number } | null {
@@ -111,7 +133,16 @@ export async function fetchPrEvidence(
   try {
     const pullRes = await fetch(`${base}/pulls/${ref.number}`, { headers: headers(token) })
     if (!pullRes.ok) return { ok: false, error: await errorFor(pullRes) }
-    const pull = (await pullRes.json()) as GhPull & { html_url: string; review_comments?: number; head?: { sha?: string } }
+    const raw = (await pullRes.json()) as {
+      state: string; merged: boolean; draft: boolean; html_url: string; review_comments?: number; head?: { sha?: string }
+      user?: { login?: string }; requested_reviewers?: { login?: string }[]; requested_teams?: { slug?: string }[]
+    }
+    const pull: GhPull & { html_url: string; review_comments?: number; head?: { sha?: string } } = {
+      ...raw,
+      author: raw.user?.login,
+      requestedReviewers: (raw.requested_reviewers ?? []).map((u) => u.login ?? '').filter(Boolean),
+      requestedTeams: (raw.requested_teams ?? []).map((t) => t.slug ?? '').filter(Boolean)
+    }
 
     let reviews: GhReview[] = []
     const reviewsRes = await fetch(`${base}/pulls/${ref.number}/reviews?per_page=100`, { headers: headers(token) })

@@ -2,15 +2,20 @@ import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
   STAGES, STALE_AFTER_MS, deriveStage, isStale, stageIndex, transitionAlert,
-  type PrEvidence, type Stage, type StageEvidence
+  type HumanReview, type PrEvidence, type Stage, type StageEvidence
 } from './pipeline'
 
 const prArb: fc.Arbitrary<PrEvidence> = fc.record({
   state: fc.constantFrom('open', 'merged', 'closed'),
   draft: fc.boolean(),
   review: fc.constantFrom('none', 'commented', 'changes_requested', 'approved'),
-  commitsAfterReview: fc.boolean()
+  commitsAfterReview: fc.boolean(),
+  humanRequested: fc.boolean(),
+  humanReview: fc.constantFrom('none', 'commented', 'changes_requested', 'approved')
 })
+
+/** PR evidence for an open PR with no human involvement. */
+const noHumans = { humanRequested: false, humanReview: 'none' as const }
 
 const evidenceArb: fc.Arbitrary<StageEvidence> = fc.record({
   jiraDone: fc.boolean(),
@@ -29,11 +34,14 @@ const empty: StageEvidence = {
 }
 
 describe('transitionAlert', () => {
-  const state = (stage: Stage, attention: 'pr_closed' | null = null, stale = false) => ({ stage, attention, stale })
+  const state = (stage: Stage, attention: 'pr_closed' | null = null, stale = false, humanReview: HumanReview = 'none') => ({
+    stage, attention, stale, humanReview
+  })
   const stateArb = fc.record({
     stage: fc.constantFrom<Stage>(...STAGES),
     attention: fc.constantFrom<'pr_closed' | null>(null, 'pr_closed'),
-    stale: fc.boolean()
+    stale: fc.boolean(),
+    humanReview: fc.constantFrom<HumanReview>('none', 'commented', 'changes_requested', 'approved')
   })
 
   it('never alerts the first time a ticket is seen', () => {
@@ -68,6 +76,28 @@ describe('transitionAlert', () => {
     expect(transitionAlert(state('rivet', null, true), state('rivet', null, true))).toBeNull()
   })
 
+  it('alerts when a PR moves into final review', () => {
+    expect(transitionAlert(state('pr_ready'), state('final_review'))).toMatch(/final review/i)
+    expect(transitionAlert(state('review'), state('final_review'))).toMatch(/final review/i)
+  })
+
+  it('notes an approval, change request or comments that arrive during final review', () => {
+    expect(transitionAlert(state('final_review'), state('final_review', null, false, 'approved'))).toMatch(/approved/i)
+    expect(transitionAlert(state('final_review'), state('final_review', null, false, 'changes_requested'))).toMatch(/changes/i)
+    expect(transitionAlert(state('final_review'), state('final_review', null, false, 'commented'))).toMatch(/comment/i)
+    expect(transitionAlert(state('final_review', null, false, 'commented'), state('final_review', null, false, 'approved'))).toMatch(/approved/i)
+  })
+
+  it('does not note a reviewer outcome that is cleared, or one seen outside final review', () => {
+    expect(transitionAlert(state('final_review', null, false, 'approved'), state('final_review'))).toBeNull()
+    expect(transitionAlert(state('review'), state('review', null, false, 'approved'))).toBeNull()
+  })
+
+  it('going from final review back to review, or on to merged, behaves like any other move', () => {
+    expect(transitionAlert(state('final_review'), state('review'))).toBeNull()
+    expect(transitionAlert(state('final_review'), state('merged'))).toMatch(/merged/i)
+  })
+
   it('any alert is a non-empty message', () => {
     fc.assert(
       fc.property(stateArb, stateArb, (a, b) => {
@@ -90,7 +120,7 @@ describe('isStale', () => {
   })
 
   it('waiting stages go stale exactly at their limit', () => {
-    for (const s of ['rivet', 'pr_ready', 'review'] as const) {
+    for (const s of ['rivet', 'pr_ready', 'review', 'final_review'] as const) {
       const limit = STALE_AFTER_MS[s] as number
       expect(isStale(s, 1000, 1000 + limit - 1)).toBe(false)
       expect(isStale(s, 1000, 1000 + limit)).toBe(true)
@@ -158,7 +188,7 @@ describe('deriveStage', () => {
   it('a PR comment or a PR means PR ready, even without a dispatch comment', () => {
     expect(deriveStage({ ...empty, rivetPrOpenedAt: 5 }).stage).toBe('pr_ready')
     expect(
-      deriveStage({ ...empty, pr: { state: 'open', draft: true, review: 'none', commitsAfterReview: false } }).stage
+      deriveStage({ ...empty, pr: { state: 'open', draft: true, review: 'none', commitsAfterReview: false, ...noHumans } }).stage
     ).toBe('pr_ready')
   })
 
@@ -167,16 +197,74 @@ describe('deriveStage', () => {
       const r = deriveStage({
         ...empty,
         rivetPrOpenedAt: 5,
-        pr: { state: 'open', draft: false, review, commitsAfterReview: false }
+        pr: { state: 'open', draft: false, review, commitsAfterReview: false, ...noHumans }
       })
       expect(r.stage).toBe('review')
     }
     expect(
       deriveStage({
         ...empty,
-        pr: { state: 'open', draft: false, review: 'none', commitsAfterReview: true }
+        pr: { state: 'open', draft: false, review: 'none', commitsAfterReview: true, ...noHumans }
       }).stage
     ).toBe('review')
+  })
+
+  it('final review sits between the review loop and merged', () => {
+    expect(stageIndex('review')).toBeLessThan(stageIndex('final_review'))
+    expect(stageIndex('final_review')).toBeLessThan(stageIndex('merged'))
+  })
+
+  it('an open PR with a human reviewer requested is in final review, whatever else is going on', () => {
+    for (const review of ['none', 'commented', 'changes_requested', 'approved'] as const) {
+      const r = deriveStage({
+        ...empty,
+        rivetPrOpenedAt: 5,
+        pr: { state: 'open', draft: false, review, commitsAfterReview: true, humanRequested: true, humanReview: 'none' }
+      })
+      expect(r.stage).toBe('final_review')
+    }
+  })
+
+  it('a human review keeps the PR in final review after the request is gone (an approval clears it on GitHub)', () => {
+    for (const humanReview of ['commented', 'changes_requested', 'approved'] as const) {
+      const r = deriveStage({
+        ...empty,
+        pr: { state: 'open', draft: false, review: humanReview, commitsAfterReview: false, humanRequested: false, humanReview }
+      })
+      expect(r.stage).toBe('final_review')
+    }
+  })
+
+  it('without any human involvement, review activity stays in the review loop (Copilot only)', () => {
+    expect(
+      deriveStage({
+        ...empty,
+        pr: { state: 'open', draft: false, review: 'commented', commitsAfterReview: false, ...noHumans }
+      }).stage
+    ).toBe('review')
+  })
+
+  it('final review only applies to open PRs', () => {
+    fc.assert(
+      fc.property(evidenceArb, prArb, (e, pr) => {
+        const stage = deriveStage({ ...e, pr: { ...pr, state: 'closed' } }).stage
+        return stage !== 'final_review'
+      })
+    )
+    fc.assert(
+      fc.property(evidenceArb, prArb, (e, pr) => {
+        return deriveStage({ ...e, pr: { ...pr, state: 'merged' } }).stage === 'merged'
+      })
+    )
+  })
+
+  it('final review is only ever the result of an open PR with human involvement', () => {
+    fc.assert(
+      fc.property(evidenceArb, (e) => {
+        if (deriveStage(e).stage !== 'final_review') return true
+        return e.pr?.state === 'open' && (e.pr.humanRequested || e.pr.humanReview !== 'none') && !e.jiraDone
+      })
+    )
   })
 
   it('draft status never changes the stage', () => {

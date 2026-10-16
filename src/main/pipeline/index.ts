@@ -10,7 +10,7 @@ import { fetchRecentComments, jqlQuote, searchKeysByJql } from '../integrations/
 import { decryptSecret, encryptSecret } from '../integrations/secrets'
 import { classifyRivetComment, htmlToText, isRivetAuthor } from './rivet'
 import { fetchPrEvidence, findPrByTicket, parsePullUrl, repoFromTags } from './github'
-import { deriveStage, isStale, transitionAlert, type AlertState, type PrEvidence, type Stage } from '../../shared/pipeline'
+import { deriveStage, isStale, transitionAlert, type AlertState, type HumanReview, type PrEvidence, type Stage } from '../../shared/pipeline'
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
@@ -281,7 +281,8 @@ async function syncGithub(key: string): Promise<void> {
   const res = await fetchPrEvidence(token, ref)
   if (!res.ok) throw new Error(res.error)
   const changed = !last || last.state !== res.pr.state || !!last.draft !== res.pr.draft ||
-    last.review !== res.pr.review || !!last.commitsAfterReview !== res.pr.commitsAfterReview || last.url !== res.url
+    last.review !== res.pr.review || !!last.commitsAfterReview !== res.pr.commitsAfterReview || last.url !== res.url ||
+    !!last.humanRequested !== res.pr.humanRequested || (last.humanReview ?? 'none') !== res.pr.humanReview
   if (changed) {
     recordEvent(key, 'github', 'pr_state', Date.now(), { ...res.pr, url: res.url, number: ref.number, repo: `${ref.owner}/${ref.repo}` }, null)
   }
@@ -490,19 +491,24 @@ export function detectAlerts(now = Date.now()): PipelineAlert[] {
   const board = getBoard(now)
   const muted = new Set(board.categories.filter((c) => c.muted).map((c) => c.id))
   const db = getDb()
-  const read = db.prepare('SELECT last_stage, last_attention, last_stale FROM pipeline_items WHERE item_key = ?')
-  const write = db.prepare('UPDATE pipeline_items SET last_stage = ?, last_attention = ?, last_stale = ? WHERE item_key = ?')
+  const read = db.prepare('SELECT last_stage, last_attention, last_stale, last_human_review FROM pipeline_items WHERE item_key = ?')
+  const write = db.prepare('UPDATE pipeline_items SET last_stage = ?, last_attention = ?, last_stale = ?, last_human_review = ? WHERE item_key = ?')
   const out: PipelineAlert[] = []
 
   for (const item of board.items) {
-    const row = read.get(item.item_key) as { last_stage: string; last_attention: string; last_stale: number } | undefined
+    const row = read.get(item.item_key) as { last_stage: string; last_attention: string; last_stale: number; last_human_review: string } | undefined
     if (!row) continue
     const prev: AlertState | null = row.last_stage
-      ? { stage: row.last_stage as Stage, attention: row.last_attention === 'pr_closed' ? 'pr_closed' : null, stale: !!row.last_stale }
+      ? {
+          stage: row.last_stage as Stage,
+          attention: row.last_attention === 'pr_closed' ? 'pr_closed' : null,
+          stale: !!row.last_stale,
+          humanReview: (row.last_human_review || 'none') as HumanReview
+        }
       : null
-    const next: AlertState = { stage: item.stage, attention: item.attention, stale: item.stale }
+    const next: AlertState = { stage: item.stage, attention: item.attention, stale: item.stale, humanReview: item.pr?.humanReview ?? 'none' }
     const message = transitionAlert(prev, next)
-    write.run(next.stage, next.attention ?? '', next.stale ? 1 : 0, item.item_key)
+    write.run(next.stage, next.attention ?? '', next.stale ? 1 : 0, next.humanReview, item.item_key)
     if (message && !muted.has(item.category_id)) out.push({ key: item.item_key, title: item.title, message })
   }
   return out
@@ -555,7 +561,7 @@ export function getBoard(now = Date.now()): { categories: Category[]; items: Boa
     ado_url: string | null; priority: number | null
   }[]
 
-  const stageCounts: Record<Stage, number> = { assigned: 0, local: 0, rivet: 0, pr_ready: 0, review: 0, merged: 0 }
+  const stageCounts: Record<Stage, number> = { assigned: 0, local: 0, rivet: 0, pr_ready: 0, review: 0, final_review: 0, merged: 0 }
   const evStmt = db.prepare('SELECT source, type, at, data FROM pipeline_events WHERE item_key = ? ORDER BY at, id')
   const linkStmt = db.prepare(`
     SELECT l.entity_type, l.entity_id,
@@ -589,7 +595,11 @@ export function getBoard(now = Date.now()): { categories: Category[]; items: Boa
         prUrl = data.prUrl ?? prUrl
         runUrl = data.runUrl ?? runUrl
       } else if (e.source === 'github' && e.type === 'pr_state') {
-        pr = { state: data.state, draft: !!data.draft, review: data.review, commitsAfterReview: !!data.commitsAfterReview }
+        pr = {
+          state: data.state, draft: !!data.draft, review: data.review, commitsAfterReview: !!data.commitsAfterReview,
+          // Older stored events predate these two fields
+          humanRequested: !!data.humanRequested, humanReview: data.humanReview ?? 'none'
+        }
         prAt = e.at
         prUrl = data.url ?? prUrl
       } else if (e.source === 'claude') {
@@ -604,7 +614,7 @@ export function getBoard(now = Date.now()): { categories: Category[]; items: Boa
 
     const since =
       res.stage === 'merged' ? (prAt || r.added_at)
-        : res.stage === 'review' ? (prAt || prOpenedAt || r.added_at)
+        : res.stage === 'review' || res.stage === 'final_review' ? (prAt || prOpenedAt || r.added_at)
           : res.stage === 'pr_ready' ? (prOpenedAt ?? (prAt || r.added_at))
             : res.stage === 'rivet' ? (dispatchedAt ?? r.added_at)
               : res.stage === 'local' ? (lastSessionStart || r.added_at)

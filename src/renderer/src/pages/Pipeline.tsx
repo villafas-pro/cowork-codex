@@ -13,7 +13,7 @@ import {
 
 type View = 'category' | 'stage'
 
-const EMPTY_COUNTS: Record<Stage, number> = { assigned: 0, local: 0, rivet: 0, pr_ready: 0, review: 0, merged: 0 }
+const EMPTY_COUNTS: Record<Stage, number> = { assigned: 0, local: 0, rivet: 0, pr_ready: 0, review: 0, final_review: 0, merged: 0 }
 
 function loadView(): View {
   try {

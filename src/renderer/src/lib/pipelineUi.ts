@@ -1,16 +1,17 @@
 // Renderer-side types and display info for the Pipeline dashboard.
 // Keep Stage and BoardItem in step with src/shared/pipeline.ts and src/main/pipeline/index.ts.
 
-export type Stage = 'assigned' | 'local' | 'rivet' | 'pr_ready' | 'review' | 'merged'
+export type Stage = 'assigned' | 'local' | 'rivet' | 'pr_ready' | 'review' | 'final_review' | 'merged'
 
-export const STAGE_ORDER: Stage[] = ['assigned', 'local', 'rivet', 'pr_ready', 'review', 'merged']
+export const STAGE_ORDER: Stage[] = ['assigned', 'local', 'rivet', 'pr_ready', 'review', 'final_review', 'merged']
 
 export const STAGE_META: Record<Stage, { label: string; short: string; color: string; hint: string }> = {
   assigned: { label: 'Assigned', short: 'Assigned', color: '#9ca3af', hint: 'On your plate, not started' },
   local: { label: 'Local', short: 'Local', color: '#a78bfa', hint: 'A Claude Code session is working on it' },
   rivet: { label: 'Rivet working', short: 'Rivet', color: '#60a5fa', hint: 'Dispatched to Rivet' },
   pr_ready: { label: 'PR ready', short: 'PR ready', color: '#2dd4bf', hint: 'Rivet opened a pull request' },
-  review: { label: 'In review loop', short: 'Review', color: '#fb923c', hint: 'PR has review activity' },
+  review: { label: 'In review loop', short: 'Review', color: '#fb923c', hint: 'PR has review activity (Copilot or automated), no person involved yet' },
+  final_review: { label: 'Final review', short: 'Final', color: '#f472b6', hint: 'A person (not Copilot) is reviewing the PR' },
   merged: { label: 'Merged', short: 'Merged', color: '#4ade80', hint: 'PR merged or ticket done' }
 }
 
@@ -46,11 +47,27 @@ export interface PipelineCategory {
   is_default: number
 }
 
+export type HumanReview = 'none' | 'commented' | 'changes_requested' | 'approved'
+
 export interface PipelinePr {
   state: 'open' | 'merged' | 'closed'
   draft: boolean
   review: 'none' | 'commented' | 'changes_requested' | 'approved'
   commitsAfterReview: boolean
+  /** A person or team (not Copilot) is requested for review */
+  humanRequested: boolean
+  /** Outcome of reviews by people, ignoring Copilot and the PR author */
+  humanReview: HumanReview
+}
+
+/** What people have done on the PR during final review, for the card. */
+export function finalReviewNote(pr: PipelinePr | null): { label: string; tone: 'wait' | 'good' | 'warn' | 'info' } | null {
+  if (!pr) return null
+  if (pr.humanReview === 'approved') return { label: 'Approved', tone: 'good' }
+  if (pr.humanReview === 'changes_requested') return { label: 'Changes requested', tone: 'warn' }
+  if (pr.humanReview === 'commented') return { label: 'Comments added', tone: 'info' }
+  if (pr.humanRequested) return { label: 'Awaiting review', tone: 'wait' }
+  return null
 }
 
 export interface PipelineItem {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import { parsePullUrl, repoFromTags, summarizePr, type GhPull, type GhReview } from './github'
 
-const open: GhPull = { state: 'open', merged: false, draft: false }
+const open: GhPull = { state: 'open', merged: false, draft: false, author: 'rivet-author' }
 const iso = (n: number): string => new Date(1_700_000_000_000 + n * 1000).toISOString()
 
 const reviewArb: fc.Arbitrary<GhReview> = fc.record({
@@ -98,6 +98,100 @@ describe('summarizePr commitsAfterReview', () => {
   })
   it('needs a review to be after', () => {
     expect(summarizePr(open, [], [iso(500)], 0).commitsAfterReview).toBe(false)
+  })
+})
+
+describe('summarizePr human reviewers', () => {
+  const copilot = 'Copilot'
+  const withRequested = (requestedReviewers: string[], requestedTeams: string[] = []): GhPull => ({ ...open, requestedReviewers, requestedTeams })
+
+  it('is empty with no reviewers requested and no reviews', () => {
+    expect(summarizePr(open, [], [], 0)).toMatchObject({ humanRequested: false, humanReview: 'none' })
+  })
+
+  it('a requested person or team counts as a human request', () => {
+    expect(summarizePr(withRequested(['alice']), [], [], 0).humanRequested).toBe(true)
+    expect(summarizePr(withRequested([], ['core-devs']), [], [], 0).humanRequested).toBe(true)
+  })
+
+  it('Copilot (and other bots) requested for review is not a human request', () => {
+    for (const bot of [copilot, 'copilot-pull-request-reviewer[bot]', 'github-actions[bot]']) {
+      expect(summarizePr(withRequested([bot]), [], [], 0).humanRequested).toBe(false)
+    }
+    expect(summarizePr(withRequested([copilot, 'alice']), [], [], 0).humanRequested).toBe(true)
+  })
+
+  it('Copilot reviews and inline comments never count as a human review', () => {
+    const reviews: GhReview[] = [
+      { user: copilot, state: 'COMMENTED', submitted_at: iso(1) },
+      { user: 'copilot-pull-request-reviewer[bot]', state: 'APPROVED', submitted_at: iso(2) }
+    ]
+    const out = summarizePr(open, reviews, [], 4)
+    expect(out.humanReview).toBe('none')
+    expect(out.review).not.toBe('none') // still visible to the review loop
+  })
+
+  it('the PR author replying to threads is not a human review', () => {
+    const reviews: GhReview[] = [{ user: 'rivet-author', state: 'COMMENTED', submitted_at: iso(1) }]
+    expect(summarizePr(open, reviews, [], 0).humanReview).toBe('none')
+  })
+
+  it('maps a person\'s review to approved, changes requested or commented', () => {
+    expect(summarizePr(open, [{ user: 'alice', state: 'APPROVED', submitted_at: iso(1) }], [], 0).humanReview).toBe('approved')
+    expect(summarizePr(open, [{ user: 'alice', state: 'CHANGES_REQUESTED', submitted_at: iso(1) }], [], 0).humanReview).toBe('changes_requested')
+    expect(summarizePr(open, [{ user: 'alice', state: 'COMMENTED', submitted_at: iso(1) }], [], 0).humanReview).toBe('commented')
+  })
+
+  it('applies the same rules as the overall review: changes requested wins, then approval, a later comment does not undo', () => {
+    const reviews: GhReview[] = [
+      { user: 'alice', state: 'APPROVED', submitted_at: iso(1) },
+      { user: 'bob', state: 'CHANGES_REQUESTED', submitted_at: iso(2) },
+      { user: 'bob', state: 'COMMENTED', submitted_at: iso(3) }
+    ]
+    expect(summarizePr(open, reviews, [], 0).humanReview).toBe('changes_requested')
+    expect(
+      summarizePr(open, [
+        { user: 'bob', state: 'CHANGES_REQUESTED', submitted_at: iso(1) },
+        { user: 'bob', state: 'APPROVED', submitted_at: iso(2) }
+      ], [], 0).humanReview
+    ).toBe('approved')
+  })
+
+  it('pending and dismissed human reviews do not count', () => {
+    const reviews: GhReview[] = [
+      { user: 'alice', state: 'PENDING', submitted_at: iso(1) },
+      { user: 'bob', state: 'DISMISSED', submitted_at: iso(2) }
+    ]
+    expect(summarizePr(open, reviews, [], 0).humanReview).toBe('none')
+  })
+
+  it('review order and Copilot noise never change the human result', () => {
+    const humanArb: fc.Arbitrary<GhReview> = fc.record({
+      user: fc.constantFrom('alice', 'bob'),
+      state: fc.constantFrom('APPROVED', 'CHANGES_REQUESTED', 'COMMENTED', 'DISMISSED', 'PENDING'),
+      submitted_at: fc.integer({ min: 0, max: 10_000 }).map(iso)
+    })
+    const noiseArb: fc.Arbitrary<GhReview> = fc.record({
+      user: fc.constantFrom(copilot, 'copilot-pull-request-reviewer[bot]', 'rivet-author'),
+      state: fc.constantFrom('APPROVED', 'CHANGES_REQUESTED', 'COMMENTED'),
+      submitted_at: fc.integer({ min: 0, max: 10_000 }).map(iso)
+    })
+    fc.assert(
+      fc.property(fc.array(humanArb, { maxLength: 6 }), fc.array(noiseArb, { maxLength: 4 }), (humans, noise) => {
+        const base = summarizePr(open, humans, [], 0).humanReview
+        const mixed = summarizePr(open, [...noise, ...humans].reverse(), [], 0).humanReview
+        return base === mixed
+      })
+    )
+  })
+
+  it('a human review is always reflected in the overall review', () => {
+    fc.assert(
+      fc.property(fc.array(reviewArb, { maxLength: 8 }), (reviews) => {
+        const out = summarizePr(open, reviews, [], 0)
+        return out.humanReview === 'none' || out.review !== 'none'
+      })
+    )
   })
 })
 

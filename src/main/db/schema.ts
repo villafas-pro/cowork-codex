@@ -128,6 +128,7 @@ function migratePipeline(db: Database.Database): void {
   addColumnIfMissing(db, 'pipeline_items', 'last_stage', "TEXT NOT NULL DEFAULT ''")
   addColumnIfMissing(db, 'pipeline_items', 'last_attention', "TEXT NOT NULL DEFAULT ''")
   addColumnIfMissing(db, 'pipeline_items', 'last_stale', 'INTEGER NOT NULL DEFAULT 0')
+  addColumnIfMissing(db, 'pipeline_items', 'last_human_review', "TEXT NOT NULL DEFAULT ''")
 
   const seeded = db.prepare("SELECT value FROM settings WHERE key = 'pipeline_seeded'").get()
   if (!seeded) {
