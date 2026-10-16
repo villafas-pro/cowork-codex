@@ -10,13 +10,13 @@ import { fetchRecentComments, jqlQuote, searchKeysByJql } from '../integrations/
 import { decryptSecret, encryptSecret } from '../integrations/secrets'
 import { classifyRivetComment, htmlToText, isRivetAuthor } from './rivet'
 import { fetchPrEvidence, findPrByTicket, parsePullUrl, repoFromTags } from './github'
-import { deriveStage, isStale, transitionAlert, type AlertState, type HumanReview, type PrEvidence, type Stage } from '../../shared/pipeline'
+import { activeSessions, deriveStage, isStale, transitionAlert, type AlertState, type HumanReview, type PrEvidence, type Stage } from '../../shared/pipeline'
+import { chooseSessionKey, type Pin } from '../../shared/sessionKey'
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_RIVET_AUTHOR = 'Rivet Factory Agent'
 /** A Claude Code session with no activity for this long no longer counts as active */
-const SESSION_ACTIVE_MS = 30 * 60 * 1000
 
 function getSetting(key: string, fallback: string): string {
   const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
@@ -403,13 +403,20 @@ const TICKET_KEY = /^[A-Z][A-Z0-9]{1,9}-\d{1,7}$/
 const unknownKeys = new Map<string, number>()
 const UNKNOWN_KEY_MS = 60 * 60 * 1000
 
-function sessionKey(sessionId: string): string | null {
+/** The ticket a session was last filed under, and whether a prompt or only the branch decided it. */
+function sessionPin(sessionId: string): Pin | null {
   const row = getDb().prepare(`
-    SELECT item_key FROM pipeline_events
+    SELECT item_key, json_extract(data, '$.via') AS via FROM pipeline_events
     WHERE source = 'claude' AND json_extract(data, '$.session_id') = ?
+      AND COALESCE(json_extract(data, '$.repinned'), 0) = 0
     ORDER BY at DESC, id DESC LIMIT 1
-  `).get(sessionId) as { item_key: string } | undefined
-  return row?.item_key ?? null
+  `).get(sessionId) as { item_key: string; via: string | null } | undefined
+  // Events from before this was recorded were filed by branch, so a prompt may still correct them
+  return row ? { key: row.item_key, via: row.via === 'prompt' ? 'prompt' : 'branch' } : null
+}
+
+function validKey(k: unknown): string | null {
+  return typeof k === 'string' && TICKET_KEY.test(k) ? k : null
 }
 
 /**
@@ -441,8 +448,19 @@ export async function ingestSessionEvents(dir: string): Promise<{ processed: num
 
     const sid = typeof ev?.session_id === 'string' ? ev.session_id : ''
     if (ev?.v !== 1 || !SESSION_EVENT_TYPES.has(ev.type) || typeof ev.at !== 'number' || !sid) continue
-    const key: string | null = typeof ev.key === 'string' && TICKET_KEY.test(ev.key) ? ev.key : sessionKey(sid)
-    if (!key) continue
+    const pinned = sessionPin(sid)
+    let pin: Pin | null
+    if ('branch_key' in ev || 'prompt_key' in ev) {
+      pin = chooseSessionKey(pinned, {
+        type: ev.type, event: String(ev.event ?? ''), promptKey: validKey(ev.prompt_key), branchKey: validKey(ev.branch_key)
+      })
+    } else {
+      // Written by an older hook script, which only sends one combined key
+      const k = validKey(ev.key) ?? pinned?.key ?? null
+      pin = k ? { key: k, via: pinned?.via ?? 'branch' } : null
+    }
+    if (!pin) continue
+    const key = pin.key
 
     const row = db.prepare('SELECT dismissed_at FROM pipeline_items WHERE item_key = ?').get(key) as { dismissed_at: number | null } | undefined
     if (row?.dismissed_at) continue // removed from the board on purpose
@@ -465,7 +483,13 @@ export async function ingestSessionEvents(dir: string): Promise<{ processed: num
       `).get(key, sid)
       if (!seen) type = 'session_start'
     }
-    const data = { session_id: sid, cwd: String(ev.cwd ?? ''), branch: String(ev.branch ?? ''), event: String(ev.event ?? '') }
+    const data = { session_id: sid, cwd: String(ev.cwd ?? ''), branch: String(ev.branch ?? ''), event: String(ev.event ?? ''), via: pin.via }
+    // A session moved to another ticket (its prompt named a different one than the branch): close it
+    // on the old ticket so that ticket does not keep showing a live session
+    if (pinned && pinned.key !== key) {
+      recordEvent(pinned.key, 'claude', 'session_end', ev.at, { ...data, event: 'Repinned', via: pinned.via, repinned: true }, `${sid}-repin-${ev.at}`)
+      touched.add(pinned.key)
+    }
     if (recordEvent(key, 'claude', type, ev.at, data, `${sid}-${ev.type}-${ev.at}`)) {
       processed++
       touched.add(key)
@@ -584,6 +608,9 @@ export function getBoard(now = Date.now()): { categories: Category[]; items: Boa
     let prAt = 0
     let sessionState: { at: number; type: string; data: { session_id?: string; cwd?: string; branch?: string } } | null = null
     let lastSessionStart = 0
+    // Every session on this ticket, so one that ended does not hide another that is still open
+    const sessionEvents: { sessionId: string; type: string; at: number }[] = []
+    const latestBySession = new Map<string, { at: number; data: { session_id?: string; cwd?: string; branch?: string } }>()
 
     for (const e of events) {
       const data = parse<Record<string, any>>(e.data)
@@ -603,12 +630,21 @@ export function getBoard(now = Date.now()): { categories: Category[]; items: Boa
         prAt = e.at
         prUrl = data.url ?? prUrl
       } else if (e.source === 'claude') {
-        sessionState = { at: e.at, type: e.type, data }
-        if (e.type === 'session_start') lastSessionStart = e.at
+        const sid = String(data.session_id ?? '')
+        if (sid) sessionEvents.push({ sessionId: sid, type: e.type, at: e.at })
+        // A session moved to another ticket only closes here; it is not something to reopen
+        if (!data.repinned) {
+          sessionState = { at: e.at, type: e.type, data }
+          if (e.type === 'session_start') lastSessionStart = e.at
+          const cur = latestBySession.get(sid)
+          if (sid && (!cur || e.at >= cur.at)) latestBySession.set(sid, { at: e.at, data })
+        }
       }
     }
 
-    const localActive = !!sessionState && sessionState.type !== 'session_end' && now - sessionState.at < SESSION_ACTIVE_MS
+    const liveIds = activeSessions(sessionEvents, now)
+    const localActive = liveIds.length > 0
+    const live = liveIds.length ? latestBySession.get(liveIds[0]) ?? null : null
     const jiraDone = r.state_category === 'done'
     const res = deriveStage({ jiraDone, localActive, rivetDispatchedAt: dispatchedAt, rivetPrOpenedAt: prOpenedAt, pr })
 
@@ -645,8 +681,8 @@ export function getBoard(now = Date.now()): { categories: Category[]; items: Boa
       pr_url: prUrl,
       pr,
       run_url: runUrl,
-      session: localActive && sessionState && sessionState.data.session_id
-        ? { session_id: sessionState.data.session_id, cwd: sessionState.data.cwd ?? '', branch: sessionState.data.branch ?? '' }
+      session: live && live.data.session_id
+        ? { session_id: live.data.session_id, cwd: live.data.cwd ?? '', branch: live.data.branch ?? '' }
         : null,
       last_session: sessionState && sessionState.data.session_id
         ? {

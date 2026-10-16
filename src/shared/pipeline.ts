@@ -39,6 +39,32 @@ export function isStale(stage: Stage, since: number, now: number): boolean {
 /** What people (not Copilot or other bots, not the PR author) have done on a PR. */
 export type HumanReview = 'none' | 'commented' | 'changes_requested' | 'approved'
 
+/**
+ * A Claude Code session counts as live until it ends. Sessions that crash never say so, so one with
+ * no news for this long is treated as gone.
+ */
+export const SESSION_ACTIVE_MS = 24 * HOUR
+
+export interface SessionEventLite {
+  sessionId: string
+  type: string
+  at: number
+}
+
+/** Ids of the sessions still live, most recently active first. Only each session's latest event counts. */
+export function activeSessions(events: SessionEventLite[], now: number): string[] {
+  const latest = new Map<string, SessionEventLite>()
+  for (const e of events) {
+    const cur = latest.get(e.sessionId)
+    // On a tie the end wins, so the order events arrive in never matters
+    if (!cur || e.at > cur.at || (e.at === cur.at && e.type === 'session_end')) latest.set(e.sessionId, e)
+  }
+  return [...latest.values()]
+    .filter((e) => e.type !== 'session_end' && now - e.at < SESSION_ACTIVE_MS)
+    .sort((a, b) => b.at - a.at)
+    .map((e) => e.sessionId)
+}
+
 export interface AlertState {
   stage: Stage
   attention: 'pr_closed' | null

@@ -2,8 +2,8 @@
  * The script Claude Code runs on session events. The app writes it to its own data folder and
  * points Claude Code's hooks at it (see claudeSettings.ts).
  *
- * It must be fast, silent and harmless: it reads the hook's JSON from stdin, finds a Jira ticket
- * key (from the git branch, else from the prompt), and drops one small file in the events folder
+ * It must be fast, silent and harmless: it reads the hook's JSON from stdin, finds the Jira ticket
+ * keys (one from the git branch, one from the prompt), and drops one small file in the events folder
  * for the app to pick up. It prints nothing (UserPromptSubmit output would be fed to Claude) and
  * always exits 0 so it can never break a session.
  *
@@ -57,7 +57,11 @@ function main() {
     }).toString().trim();
   } catch (e) { /* not a repo, or git missing */ }
 
-  var key = findKey(branch, true) || findKey(p.prompt, false);
+  // Both candidates are reported and the app decides: a prompt that names a ticket beats the branch
+  // (several sessions can share one folder and so one branch). The combined key field is kept for older app versions.
+  var branchKey = findKey(branch, true);
+  var promptKey = findKey(p.prompt, false);
+  var key = promptKey || branchKey;
   // A session with no ticket is not ours to track, but its end is still recorded so the app can
   // close a session it learned about from a later prompt.
   if (!key && type !== 'session_end') return;
@@ -67,7 +71,7 @@ function main() {
   var tmp = path.join(dir, '.' + name + '.tmp');
   fs.writeFileSync(tmp, JSON.stringify({
     v: 1, type: type, at: Date.now(), session_id: String(p.session_id || ''),
-    cwd: cwd, branch: branch, key: key, event: ev
+    cwd: cwd, branch: branch, key: key, branch_key: branchKey, prompt_key: promptKey, event: ev
   }));
   fs.renameSync(tmp, path.join(dir, name + '.json'));
 }

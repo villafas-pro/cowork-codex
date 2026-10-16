@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import {
-  STAGES, STALE_AFTER_MS, deriveStage, isStale, stageIndex, transitionAlert,
+  SESSION_ACTIVE_MS, STAGES, STALE_AFTER_MS, activeSessions, deriveStage, isStale, stageIndex, transitionAlert,
   type HumanReview, type PrEvidence, type Stage, type StageEvidence
 } from './pipeline'
 
@@ -311,6 +311,65 @@ describe('deriveStage', () => {
           return stageIndex(deriveStage(next).stage) >= before
         }
       )
+    )
+  })
+})
+
+describe('activeSessions', () => {
+  const now = 10_000_000_000
+  const e = (sessionId: string, type: string, ago: number) => ({ sessionId, type, at: now - ago })
+
+  it('a session is active until it ends, however long it has been idle within the window', () => {
+    expect(activeSessions([e('a', 'heartbeat', 3 * 60 * 60 * 1000)], now)).toEqual(['a'])
+    expect(activeSessions([e('a', 'session_start', 1000), e('a', 'heartbeat', 500)], now)).toEqual(['a'])
+  })
+
+  it('an ended session is not active', () => {
+    expect(activeSessions([e('a', 'heartbeat', 2000), e('a', 'session_end', 1000)], now)).toEqual([])
+  })
+
+  it('a session with no news for longer than the backstop is treated as gone (it probably crashed)', () => {
+    expect(activeSessions([e('a', 'heartbeat', SESSION_ACTIVE_MS - 1)], now)).toEqual(['a'])
+    expect(activeSessions([e('a', 'heartbeat', SESSION_ACTIVE_MS)], now)).toEqual([])
+  })
+
+  it('one ended session does not hide another that is still open', () => {
+    const out = activeSessions([e('a', 'session_end', 1000), e('b', 'heartbeat', 5000)], now)
+    expect(out).toEqual(['b'])
+  })
+
+  it('lists the most recently active session first', () => {
+    expect(activeSessions([e('a', 'heartbeat', 9000), e('b', 'heartbeat', 1000), e('c', 'heartbeat', 5000)], now)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('only each session\'s latest event matters, whatever order the events arrive in', () => {
+    const evArb = fc.record({
+      sessionId: fc.constantFrom('a', 'b', 'c'),
+      type: fc.constantFrom('session_start', 'heartbeat', 'session_end'),
+      at: fc.integer({ min: now - 2 * SESSION_ACTIVE_MS, max: now })
+    })
+    fc.assert(
+      fc.property(fc.array(evArb, { maxLength: 12 }), (events) => {
+        const a = activeSessions(events, now)
+        const b = activeSessions([...events].reverse(), now)
+        return JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())
+      })
+    )
+  })
+
+  it('never reports an ended or expired session', () => {
+    const evArb = fc.record({
+      sessionId: fc.constantFrom('a', 'b', 'c'),
+      type: fc.constantFrom('session_start', 'heartbeat', 'session_end'),
+      at: fc.integer({ min: now - 2 * SESSION_ACTIVE_MS, max: now })
+    })
+    fc.assert(
+      fc.property(fc.array(evArb, { maxLength: 12 }), (events) => {
+        return activeSessions(events, now).every((id) => {
+          const last = events.filter((x) => x.sessionId === id).sort((p, q) => q.at - p.at || (q.type === 'session_end' ? 1 : -1))[0]
+          return last.type !== 'session_end' && now - last.at < SESSION_ACTIVE_MS
+        })
+      })
     )
   })
 })

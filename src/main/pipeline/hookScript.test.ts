@@ -89,6 +89,27 @@ describe('pipeline hook script', () => {
     expect(events(out)).toMatchObject([{ type: 'session_end', session_id: 's6', key: null }])
   })
 
+  it('reports the branch ticket and the prompt ticket separately, and the prompt wins the combined key', () => {
+    const out = join(root, 'e11')
+    run({ hook_event_name: 'UserPromptSubmit', session_id: 's11', cwd: repo, prompt: 'A11y ticket OB-12707: fix the filter' }, out)
+    expect(events(out)).toMatchObject([{ type: 'heartbeat', key: 'OB-12707', prompt_key: 'OB-12707', branch_key: 'OB-12064' }])
+  })
+
+  it('has no prompt key at session start or turn end, only the branch one', () => {
+    const out = join(root, 'e12')
+    run({ hook_event_name: 'SessionStart', session_id: 's12', cwd: repo }, out)
+    run({ hook_event_name: 'Stop', session_id: 's12', cwd: repo }, out)
+    const got = events(out)
+    expect(got).toHaveLength(2)
+    for (const g of got) expect(g).toMatchObject({ prompt_key: null, branch_key: 'OB-12064', key: 'OB-12064' })
+  })
+
+  it('reports a prompt ticket on its own when the branch has none', () => {
+    const out = join(root, 'e13')
+    run({ hook_event_name: 'UserPromptSubmit', session_id: 's13', cwd: plainRepo, prompt: 'OB-12709 please' }, out)
+    expect(events(out)).toMatchObject([{ key: 'OB-12709', prompt_key: 'OB-12709', branch_key: null }])
+  })
+
   it('maps Stop to a heartbeat', () => {
     const out = join(root, 'e7')
     run({ hook_event_name: 'Stop', session_id: 's7', cwd: repo }, out)
